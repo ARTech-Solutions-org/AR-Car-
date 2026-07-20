@@ -79,6 +79,79 @@
     #hint-bar.visible { display: flex; }
     #hint-bar span { display: flex; align-items: center; gap: 5px; }
 
+    /* ── HTML App Detail Sheet Modal ── */
+    #app-modal {
+      position: fixed; inset: 0; z-index: 150;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(12px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    #app-modal.active {
+      opacity: 1; pointer-events: all;
+    }
+
+    .modal-card {
+      width: min(420px, 92vw);
+      background: rgba(18, 20, 32, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-bottom: none;
+      border-radius: 28px 28px 0 0;
+      padding: 24px;
+      color: #fff;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 240, 255, 0.15);
+    }
+    #app-modal.active .modal-card {
+      transform: translateY(0);
+    }
+
+    .modal-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+    }
+    .modal-tile {
+      width: 52px; height: 52px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4); flex-shrink: 0;
+    }
+    .modal-tile.blue   { background: linear-gradient(135deg, #007aff, #00c6ff); }
+    .modal-tile.purple { background: linear-gradient(135deg, #af52de, #7928ca); }
+    .modal-tile.red    { background: linear-gradient(135deg, #ff3b30, #ff9500); }
+    .modal-tile.green  { background: linear-gradient(135deg, #34c759, #30d158); }
+    .modal-tile.cyan   { background: linear-gradient(135deg, #5ac8fa, #007aff); }
+    .modal-tile.gold   { background: linear-gradient(135deg, #ffcc00, #ff9500); }
+
+    .modal-title-wrap { flex: 1; }
+    .modal-category {
+      font-size: 0.7rem; color: #00f0ff; text-transform: uppercase;
+      letter-spacing: 0.1em; font-weight: 700;
+    }
+    .modal-name {
+      font-size: 1.3rem; font-weight: 700; line-height: 1.2; margin-top: 2px;
+    }
+    .modal-close-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff; font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .modal-close-btn:active { background: rgba(255,255,255,0.3); }
+
+    .spec-grid {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .spec-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 16px; border-radius: 14px;
+    }
+    .spec-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
+    .spec-val { font-size: 0.9rem; font-weight: 700; color: #fff; }
+
     #toast {
       position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%);
@@ -107,9 +180,29 @@
   <div id="tap-prompt">👆 Tap to place the phone</div>
 
   <div id="hint-bar">
-    <span>📱 Tap an App on Screen to open</span>
+    <span>📱 Tap any App Icon on the 3D phone screen</span>
     <span>↔ Drag to rotate</span>
     <span>🤏 Pinch to resize</span>
+  </div>
+
+  <!-- HTML App Detail Sheet Modal -->
+  <div id="app-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-tile" id="m-tile">📱</div>
+        <div class="modal-title-wrap">
+          <div class="modal-category" id="m-category">DISPLAY SPECIFICATIONS</div>
+          <div class="modal-name" id="m-name">6.7" Super Retina OLED</div>
+        </div>
+        <button class="modal-close-btn" id="m-close">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="spec-grid" id="m-specs">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="toast"></div>
@@ -135,6 +228,7 @@
     const topLogo  = document.getElementById('top-logo');
     const hintBar  = document.getElementById('hint-bar');
     const toast    = document.getElementById('toast');
+    const appModal = document.getElementById('app-modal');
 
     // ── App Details Specs Database ────────────────────────────────────────────
     const APP_SPECS_DB = {
@@ -218,6 +312,37 @@
       }
     };
 
+    function openAppModal(appKey) {
+      const data = APP_SPECS_DB[appKey];
+      if (!data) return;
+
+      document.getElementById('m-category').textContent = data.category;
+      document.getElementById('m-name').textContent     = data.name;
+      const tileEl = document.getElementById('m-tile');
+      tileEl.textContent = data.icon;
+      tileEl.className   = `modal-tile ${data.tileClass}`;
+
+      const specsWrap = document.getElementById('m-specs');
+      specsWrap.innerHTML = '';
+      data.specs.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'spec-row';
+        row.innerHTML = `<span class="spec-label">${s.label}</span><span class="spec-val">${s.val}</span>`;
+        specsWrap.appendChild(row);
+      });
+
+      appModal.classList.add('active');
+    }
+
+    document.getElementById('m-close').addEventListener('click', () => {
+      appModal.classList.remove('active');
+    });
+    appModal.addEventListener('click', (e) => {
+      if (e.target.id === 'app-modal') {
+        appModal.classList.remove('active');
+      }
+    });
+
     // ── Three.js setup ────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -264,21 +389,18 @@
     // ── State Machine ─────────────────────────────────────────────────────────
     let carRoot   = null;
     let screenMeshRef = null;
-    let appHitboxMeshes = []; // Discrete 3D Touch Targets for each app
     let placed    = false;
     let carScale  = 1.0;
     let currentScale = 1.0;
     let autoRotate   = false;
     let carYaw    = 0;
 
-    let currentScreenState = 'HOMEPAGE'; // 'HOMEPAGE' | 'APP_VIEW'
-    let activeAppKey = null;
     let screenCanvas = null;
     let screenCtx = null;
     let screenTextureRef = null;
 
     // ── 3D Smartphone Display Canvas Renderer ─────────────────────────────────
-    function renderPhoneScreenCanvas() {
+    function createPhoneScreenCanvas() {
       if (!screenCanvas) {
         screenCanvas = document.createElement('canvas');
         screenCanvas.width = 512;
@@ -303,7 +425,7 @@
       ctx.fillStyle = 'rgba(175, 82, 222, 0.18)';
       ctx.beginPath(); ctx.arc(400, 750, 220, 0, Math.PI * 2); ctx.fill();
 
-      // 2. Top Status Bar (both screens)
+      // 2. Top Status Bar
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
       ctx.textAlign = 'left';
@@ -313,24 +435,7 @@
       ctx.font = '20px Outfit, sans-serif';
       ctx.fillText('5G  100%', 480, 45);
 
-      if (currentScreenState === 'HOMEPAGE') {
-        renderHomepageContent(ctx);
-      } else if (currentScreenState === 'APP_VIEW' && activeAppKey) {
-        renderAppViewContent(ctx, activeAppKey);
-      }
-
-      // 3. Home Bar Indicator at bottom
-      ctx.fillStyle = currentScreenState === 'APP_VIEW' ? '#00f0ff' : '#ffffff';
-      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
-
-      if (screenTextureRef) {
-        screenTextureRef.needsUpdate = true;
-      }
-      return screenCanvas;
-    }
-
-    function renderHomepageContent(ctx) {
-      // Header Card
+      // 3. Header Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath(); ctx.roundRect(32, 70, 448, 80, 20); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
@@ -344,7 +449,7 @@
       ctx.font = '600 16px Outfit, sans-serif';
       ctx.fillText('⚡ 5G ULTRA POWERED', 56, 134);
 
-      // App Icons Grid (2 columns x 3 rows)
+      // 4. App Icons Grid (2 columns x 3 rows)
       const apps = [
         { icon: '📱', bg1: '#007aff', bg2: '#00c6ff', title: 'DISPLAY', val: '6.7" OLED', detail: '120Hz LTPO' },
         { icon: '⚡', bg1: '#af52de', bg2: '#7928ca', title: 'CHIPSET', val: '3nm Bionic', detail: 'Octa-Core' },
@@ -394,7 +499,7 @@
         ctx.fillText(app.detail, x + 16, y + 142);
       });
 
-      // Bottom App Dock
+      // 5. Bottom App Dock
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.beginPath(); ctx.roundRect(32, 860, 448, 90, 32); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -407,131 +512,62 @@
         ctx.textAlign = 'center';
         ctx.fillText(ic, dx, 918);
       });
+
+      // 6. Home Bar Indicator
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+
+      if (screenTextureRef) {
+        screenTextureRef.needsUpdate = true;
+      }
+      return screenCanvas;
     }
 
-    function renderAppViewContent(ctx, appKey) {
-      const data = APP_SPECS_DB[appKey];
-      if (!data) return;
+    // ── Guaranteed 100% Precision UV Raycasting ──────────────────────────────
+    function handleScreenRaycast(uv) {
+      if (!uv) return;
 
-      // 1. Navigation Buttons (Prominent Back & Home Buttons)
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-      ctx.beginPath(); ctx.roundRect(32, 60, 140, 52, 26); ctx.fill();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 1.8; ctx.stroke();
+      const u = uv.x;
+      const v = uv.y;
 
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('‹ BACK', 102, 94);
+      // Determine Column (0 = Left, 1 = Right)
+      const col = (u < 0.5) ? 0 : 1;
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.beginPath(); ctx.roundRect(340, 60, 140, 52, 26); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 1.8; ctx.stroke();
+      // Determine Row (0 = Top [v > 0.62], 1 = Middle [0.38 <= v <= 0.62], 2 = Bottom [v < 0.38])
+      let row = 1;
+      if (v > 0.62) {
+        row = 0;
+      } else if (v < 0.38) {
+        row = 2;
+      }
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🏠 HOME', 410, 94);
+      const idx = row * 2 + col;
+      const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
 
-      // 2. App Hero Card
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.beginPath(); ctx.roundRect(32, 126, 448, 110, 24); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = 1.5; ctx.stroke();
-
-      const bgColors = {
-        blue: ['#007aff', '#00c6ff'],
-        purple: ['#af52de', '#7928ca'],
-        red: ['#ff3b30', '#ff9500'],
-        green: ['#34c759', '#30d158'],
-        cyan: ['#5ac8fa', '#007aff'],
-        gold: ['#ffcc00', '#ff9500']
-      };
-      const colors = bgColors[data.tileClass] || ['#007aff', '#00c6ff'];
-      const tileGrad = ctx.createLinearGradient(52, 148, 116, 212);
-      tileGrad.addColorStop(0, colors[0]);
-      tileGrad.addColorStop(1, colors[1]);
-
-      ctx.fillStyle = tileGrad;
-      ctx.beginPath(); ctx.roundRect(52, 148, 64, 64, 18); ctx.fill();
-
-      ctx.font = '32px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(data.icon, 84, 192);
-
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = '700 13px Outfit, sans-serif';
-      ctx.fillText(data.category, 134, 171);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.fillText(data.name, 134, 200);
-
-      // 3. Spec Details List
-      const startY = 252;
-      const rowH = 118;
-
-      data.specs.forEach((s, idx) => {
-        const y = startY + idx * rowH;
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
-        ctx.beginPath(); ctx.roundRect(32, y, 448, 102, 20); ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 1; ctx.stroke();
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-        ctx.font = '600 14px Outfit, sans-serif';
-        ctx.fillText(s.label, 54, y + 38);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 21px Outfit, sans-serif';
-        ctx.fillText(s.val, 54, y + 74);
-      });
-
-      // 4. Bottom Close Bar Banner
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
-      ctx.beginPath(); ctx.roundRect(32, 876, 448, 76, 38); ctx.fill();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 1.5; ctx.stroke();
-
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 20px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('‹ TAP ANYWHERE TO CLOSE APP ›', 256, 922);
+      if (idx >= 0 && idx < appKeys.length) {
+        openAppModal(appKeys[idx]);
+      }
     }
 
-    // ── 3D Discrete Hitbox Raycasting ─────────────────────────────────────────
     const raycaster = new THREE.Raycaster();
     const pointer   = new THREE.Vector2();
 
     function checkScreenClick(clientX, clientY) {
       if (!placed || !screenMeshRef) return;
+      if (appModal.classList.contains('active')) return;
 
       pointer.x = (clientX / window.innerWidth) * 2 - 1;
       pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
 
-      if (currentScreenState === 'HOMEPAGE') {
-        // Raycast against the 6 discrete 3D App Hitboxes directly attached to the screen face!
-        const intersects = raycaster.intersectObjects(appHitboxMeshes, true);
-        if (intersects.length > 0) {
-          const clickedKey = intersects[0].object.userData?.appKey;
-          if (clickedKey) {
-            currentScreenState = 'APP_VIEW';
-            activeAppKey = clickedKey;
-            renderPhoneScreenCanvas();
-          }
-        }
-      } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping anywhere on the 3D phone display screen in APP_VIEW returns to HOMEPAGE
-        const intersects = raycaster.intersectObject(screenMeshRef, true);
-        if (intersects.length > 0) {
-          currentScreenState = 'HOMEPAGE';
-          activeAppKey = null;
-          renderPhoneScreenCanvas();
+      // Raycast directly against screenMeshRef
+      const intersects = raycaster.intersectObject(screenMeshRef, true);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0];
+        if (hit.uv) {
+          handleScreenRaycast(hit.uv);
         }
       }
     }
@@ -569,13 +605,13 @@
       const screenW = widthDim.size * 0.92;
       const screenH = heightDim.size * 0.92;
 
-      const screenCanvasEl = renderPhoneScreenCanvas();
+      const screenCanvasEl = createPhoneScreenCanvas();
       screenTextureRef = new THREE.CanvasTexture(screenCanvasEl);
       screenTextureRef.colorSpace = THREE.SRGBColorSpace;
 
       const screenMat = new THREE.MeshBasicMaterial({
         map: screenTextureRef,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide, // Front side only to prevent backface UV inversion
         transparent: true
       });
 
@@ -595,37 +631,6 @@
 
       carRoot.add(screenMesh);
       screenMeshRef = screenMesh;
-
-      // ── Create 6 Discrete 3D App Hitbox Touch Target Meshes ──
-      const appGridDefs = [
-        { key: 'DISPLAY', col: -1, row:  1 },
-        { key: 'CHIPSET', col:  1, row:  1 },
-        { key: 'CAMERA',  col: -1, row:  0 },
-        { key: 'BATTERY', col:  1, row:  0 },
-        { key: 'NETWORK', col: -1, row: -1 },
-        { key: 'MEMORY',  col:  1, row: -1 },
-      ];
-
-      const hbGeo = new THREE.PlaneGeometry(screenW * 0.44, screenH * 0.24);
-      appHitboxMeshes = [];
-
-      appGridDefs.forEach(def => {
-        const hbMat = new THREE.MeshBasicMaterial({
-          visible: false, // Invisible 3D touch target
-          side: THREE.DoubleSide
-        });
-        const hbMesh = new THREE.Mesh(hbGeo, hbMat);
-
-        const localX = def.col * screenW * 0.23;
-        const localY = def.row * screenH * 0.22;
-        const localZ = 0.005; // Slightly in front of screen plane
-
-        hbMesh.position.set(localX, localY, localZ);
-        hbMesh.userData = { appKey: def.key };
-
-        screenMesh.add(hbMesh);
-        appHitboxMeshes.push(hbMesh);
-      });
 
       carRoot.visible = false;
       scene.add(carRoot);
@@ -780,20 +785,9 @@
             placeCar(pos);
           } else if (placed && screenMeshRef) {
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            if (currentScreenState === 'HOMEPAGE') {
-              const intersects = raycaster.intersectObjects(appHitboxMeshes, true);
-              if (intersects.length > 0 && intersects[0].object.userData?.appKey) {
-                currentScreenState = 'APP_VIEW';
-                activeAppKey = intersects[0].object.userData.appKey;
-                renderPhoneScreenCanvas();
-              }
-            } else if (currentScreenState === 'APP_VIEW') {
-              const intersects = raycaster.intersectObject(screenMeshRef, true);
-              if (intersects.length > 0) {
-                currentScreenState = 'HOMEPAGE';
-                activeAppKey = null;
-                renderPhoneScreenCanvas();
-              }
+            const intersects = raycaster.intersectObject(screenMeshRef, true);
+            if (intersects.length > 0 && intersects[0].uv) {
+              handleScreenRaycast(intersects[0].uv);
             }
           }
         });
