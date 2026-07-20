@@ -80,33 +80,59 @@
     #hint-bar span { display: flex; align-items: center; gap: 5px; }
 
     /* ── Hotspot cards ── */
+    /* ── Mobile App Icon Hotspots ── */
     .hspot {
       position: fixed;
-      background: rgba(12, 12, 16, 0.88);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 14px;
-      padding: 8px 12px;
-      min-width: 82px;
-      text-align: center;
-      backdrop-filter: blur(14px);
-      pointer-events: none;
-      transform: translate(-50%, -115%);
-      transition: opacity 0.25s;
       display: none;
       z-index: 30;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      transition: opacity 0.25s, transform 0.25s;
     }
-    .hspot::after {
-      content: '';
-      position: absolute;
-      bottom: -6px; left: 50%;
-      transform: translateX(-50%);
-      width: 2px; height: 6px;
-      background: rgba(255,255,255,0.3);
+
+    .app-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 15, 22, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 18px;
+      padding: 6px 12px 6px 6px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 255, 255, 0.08);
+      white-space: nowrap;
     }
-    .hspot .h-icon { font-size: 1.3rem; }
-    .hspot .h-title { font-size: 0.55rem; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.1em; margin: 1px 0; }
-    .hspot .h-val { font-size: 1rem; font-weight: 700; line-height: 1.1; }
-    .hspot .h-detail { font-size: 0.6rem; color: var(--mg-red); font-weight: 600; }
+
+    .app-tile {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+
+    /* Vibrant app gradients */
+    .app-tile.blue   { background: linear-gradient(135deg, #007aff, #00c6ff); }
+    .app-tile.purple { background: linear-gradient(135deg, #af52de, #7928ca); }
+    .app-tile.red    { background: linear-gradient(135deg, #ff3b30, #ff9500); }
+    .app-tile.green  { background: linear-gradient(135deg, #34c759, #30d158); }
+    .app-tile.cyan   { background: linear-gradient(135deg, #5ac8fa, #007aff); }
+    .app-tile.gold   { background: linear-gradient(135deg, #ffcc00, #ff9500); }
+
+    .app-info {
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .app-title {
+      font-size: 0.65rem; color: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+    }
+    .app-val {
+      font-size: 0.95rem; font-weight: 700; color: #fff; line-height: 1.15;
+    }
+    .app-detail {
+      font-size: 0.65rem; color: #00f0ff; font-weight: 600;
+    }
 
     #toast {
       position: fixed; bottom: 24px; left: 50%;
@@ -126,27 +152,86 @@
   <div id="ar-container"></div>
 
   <div id="sov">
-    <img src="/shared/mg-logo.svg" alt="MG"/>
-    <div class="sv-t">MG7 <em>AR</em></div>
-    <div class="sv-s">Point camera at a flat surface<br>then tap to place the car</div>
+    <img src="/shared/mg-logo.svg" alt="Mobile"/>
+    <div class="sv-t">Mobile <em>AR</em></div>
+    <div class="sv-s">Point camera at a flat surface<br>then tap to place the phone</div>
     <button id="startBtn">Open Camera</button>
   </div>
 
-  <img src="/shared/mg-logo.svg" id="top-logo" alt="MG"/>
-  <div id="tap-prompt">👆 Tap to place the MG7</div>
+  <img src="/shared/mg-logo.svg" id="top-logo" alt="Mobile"/>
+  <div id="tap-prompt">👆 Tap to place the phone</div>
 
   <div id="hint-bar">
     <span>↔ Drag to rotate</span>
     <span>🤏 Pinch to resize</span>
   </div>
 
-  <!-- 6 info hotspot cards -->
-  <div class="hspot" id="hs-engine"><div class="h-icon">⚡</div><div class="h-title">Engine</div><div class="h-val">1.5T</div><div class="h-detail">169 HP</div></div>
-  <div class="hspot" id="hs-speed"><div class="h-icon">🏎</div><div class="h-title">0–100</div><div class="h-val">8.2s</div><div class="h-detail">Sport Mode</div></div>
-  <div class="hspot" id="hs-tech"><div class="h-icon">📡</div><div class="h-title">Tech</div><div class="h-val">ADAS L2</div><div class="h-detail">Lane Keep</div></div>
-  <div class="hspot" id="hs-fuel"><div class="h-icon">🔋</div><div class="h-title">Fuel</div><div class="h-val">6.8L</div><div class="h-detail">Per 100 km</div></div>
-  <div class="hspot" id="hs-length"><div class="h-icon">📐</div><div class="h-title">Length</div><div class="h-val">4675mm</div><div class="h-detail">1842mm Wide</div></div>
-  <div class="hspot" id="hs-safety"><div class="h-icon">⭐</div><div class="h-title">Safety</div><div class="h-val">5★</div><div class="h-detail">Euro NCAP</div></div>
+  <!-- 6 Mobile App Icon Hotspots -->
+  <div class="hspot" id="hs-engine">
+    <div class="app-card">
+      <div class="app-tile blue">📱</div>
+      <div class="app-info">
+        <span class="app-title">Display</span>
+        <span class="app-val">6.7" OLED</span>
+        <span class="app-detail">120Hz LTPO</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hspot" id="hs-speed">
+    <div class="app-card">
+      <div class="app-tile purple">⚡</div>
+      <div class="app-info">
+        <span class="app-title">Chipset</span>
+        <span class="app-val">3nm Bionic</span>
+        <span class="app-detail">Octa-Core</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hspot" id="hs-tech">
+    <div class="app-card">
+      <div class="app-tile red">📸</div>
+      <div class="app-info">
+        <span class="app-title">Camera</span>
+        <span class="app-val">200 MP</span>
+        <span class="app-detail">8K HDR Video</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hspot" id="hs-fuel">
+    <div class="app-card">
+      <div class="app-tile green">🔋</div>
+      <div class="app-info">
+        <span class="app-title">Battery</span>
+        <span class="app-val">5000 mAh</span>
+        <span class="app-detail">100W Fast Charge</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hspot" id="hs-length">
+    <div class="app-card">
+      <div class="app-tile cyan">📶</div>
+      <div class="app-info">
+        <span class="app-title">Network</span>
+        <span class="app-val">Ultra 5G</span>
+        <span class="app-detail">Wi-Fi 7 Speed</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="hspot" id="hs-safety">
+    <div class="app-card">
+      <div class="app-tile gold">💾</div>
+      <div class="app-info">
+        <span class="app-title">Memory</span>
+        <span class="app-val">512 GB</span>
+        <span class="app-detail">16GB LPDDR5 RAM</span>
+      </div>
+    </div>
+  </div>
 
   <div id="toast"></div>
 
@@ -252,28 +337,28 @@
       box.getSize(sz);
       box.getCenter(ctr);
 
-      // Fit to ~2 meters long (smaller default size)
-      carScale = 2.0 / Math.max(sz.x, sz.z);
+      // Fit to smartphone scale (1.0m max dimension, half of previous 2.0 scale)
+      carScale = 1.0 / Math.max(sz.x, sz.y, sz.z);
       currentScale = carScale;
 
-      // Spread hotspots like a clock around the car (elliptical, one per 60°)
-      // Using the bounding box EDGE + generous outward push so they're clearly separated
-      const rx   = sz.x * 0.62;   // ellipse X radius (car width)
-      const rz   = sz.z * 0.62;   // ellipse Z radius (car length)
-      const yTop = ctr.y + sz.y * 0.55;  // high enough to float above body
-      const yMid = ctr.y + sz.y * 0.30;  // side-window height
+      // Position App Icon Badges in a screen grid floating around the mobile phone
+      const rx = Math.max(sz.x * 0.55, 0.3);
+      const ry = Math.max(sz.y * 0.40, 0.4);
+      const rz = Math.max(sz.z * 0.55, 0.1);
 
-      // 0° = front, 90° = right, 180° = rear, 270° = left  (in car local space, Z- is forward)
-      // We want: front(engine), front-right(speed), rear-right(tech), rear(fuel), rear-left(length), front-left(safety)
-      const angles = [0, 60, 120, 180, 240, 300]; // degrees around car
-      const heights= [yTop, yMid, yMid, yTop, yMid, yMid];
+      const offsets = [
+        { x: -rx, y:  ry, z: rz }, // Top-Left: Display App
+        { x:  rx, y:  ry, z: rz }, // Top-Right: Chipset App
+        { x: -rx, y:   0, z: rz }, // Mid-Left: Camera App
+        { x:  rx, y:   0, z: rz }, // Mid-Right: Battery App
+        { x: -rx, y: -ry, z: rz }, // Bottom-Left: Network 5G App
+        { x:  rx, y: -ry, z: rz }, // Bottom-Right: Memory App
+      ];
 
-      angles.forEach((deg, i) => {
-        const rad = THREE.MathUtils.degToRad(deg);
-        // Map angle to car local axes: angle 0 = front (+Z), 90 = right (+X)
-        const lx = Math.sin(rad) * rx;
-        const lz = Math.cos(rad) * rz;
-        HOTSPOT_DEFS[i].local.set(ctr.x + lx, heights[i], ctr.z + lz);
+      offsets.forEach((off, i) => {
+        if (HOTSPOT_DEFS[i]) {
+          HOTSPOT_DEFS[i].local.set(ctr.x + off.x, ctr.y + off.y, ctr.z + off.z);
+        }
       });
 
 
