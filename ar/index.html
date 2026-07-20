@@ -414,17 +414,7 @@
       const data = APP_SPECS_DB[appKey];
       if (!data) return;
 
-      // 1. Navigation Buttons (Prominent Back & Home Buttons)
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-      ctx.beginPath(); ctx.roundRect(32, 60, 140, 52, 26); ctx.fill();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 1.8; ctx.stroke();
-
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('‹ BACK', 102, 94);
-
+      // 1. Navigation Header (Prominent Home Button Top Right)
       ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.beginPath(); ctx.roundRect(340, 60, 140, 52, 26); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
@@ -500,10 +490,10 @@
       ctx.fillStyle = '#00f0ff';
       ctx.font = 'bold 20px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('‹ TAP BACK OR HOME TO EXIT ›', 256, 922);
+      ctx.fillText('‹ TAP HOME TO EXIT ›', 256, 922);
     }
 
-    // ── Unity-Style 3D Button Raycasting (Strict Icon Box Boundaries) ───────
+    // ── Local Object Space Button Raycasting ─────────────────────────────────
     function processLocal3DHit(hitPointWorld) {
       if (!screenMeshRef) return;
 
@@ -540,12 +530,11 @@
         }
         // Tapping empty wallpaper, header, dock, or status bar DOES NOTHING
       } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping Back Button (top left), Home Button (top right), or Bottom Bar exits to HOMEPAGE
-        const isBackBtn = (px >= 30 && px <= 180 && py >= 50 && py <= 120);
+        // Tapping Home Button (top right) or Bottom Home Bar exits to HOMEPAGE
         const isHomeBtn = (px >= 330 && px <= 490 && py >= 50 && py <= 120);
         const isBottomBar = (py >= 870);
 
-        if (isBackBtn || isHomeBtn || isBottomBar) {
+        if (isHomeBtn || isBottomBar) {
           currentScreenState = 'HOMEPAGE';
           activeAppKey = null;
           renderPhoneScreenCanvas();
