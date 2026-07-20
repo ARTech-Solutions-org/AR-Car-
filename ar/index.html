@@ -170,14 +170,15 @@
 
     // ── State ─────────────────────────────────────────────────────────────────
     let carRoot = null, bgScreenMesh = null, atlasMesh = null;
-    let appHitboxes = [];    // 6 invisible PlaneGeometry hitboxes — 0 draw calls
-    let homeHitbox  = null;  // 1 invisible PlaneGeometry hitbox — 0 draw calls
+    let appHitboxes = [];      // 6 invisible PlaneGeometry hitboxes — 0 draw calls
+    let homeButtonMesh = null; // Physical 3D BoxGeometry button mesh
     let placed = false, carScale = 1.0, currentScale = 1.0, carYaw = 0;
     let currentScreenState = 'HOMEPAGE', activeAppKey = null;
     let screenW = 0.1, screenH = 0.2;
 
     // ── GPU Texture Cache (pre-rendered once at load) ─────────────────────────
     let texWallpaper = null;
+    let texHomeBtn   = null;  // dedicated texture for 3D home button
     const texAppSpec = {};
     let texAtlas = null;  // single atlas for all 6 app tiles
 
@@ -255,13 +256,6 @@
         actx.fillStyle = '#00f0ff'; actx.font = '700 8px Outfit,sans-serif'; actx.fillText(app.category, 66, 50);
         actx.fillStyle = '#fff'; actx.font = 'bold 11px Outfit,sans-serif'; actx.fillText(app.name, 66, 65);
 
-        // ── HOME button drawn on canvas (NO separate mesh) ──
-        actx.fillStyle = 'rgba(0,240,255,0.25)';
-        actx.beginPath(); actx.roundRect(14, 100, 228, 32, 16); actx.fill();
-        actx.strokeStyle = '#00f0ff'; actx.lineWidth = 1.5; actx.stroke();
-        actx.fillStyle = '#fff'; actx.font = 'bold 13px Outfit,sans-serif';
-        actx.textAlign = 'center'; actx.fillText('🏠  RETURN TO HOME', 128, 121);
-
         // Specs list
         app.specs.forEach((s, idx) => {
           const sy = 142 + idx * 62;
@@ -280,7 +274,22 @@
         texAppSpec[app.key] = makeTexture(ac);
       });
 
-      // ── 3. Atlas Texture: all 6 app tiles on one 512×512 canvas (2 cols × 3 rows) ──
+      // ── 3. Dedicated 3D Home Button Texture (512×128) ──
+      const hbc = makeCanvas(512, 128);
+      const hbctx = hbc.getContext('2d');
+      const hbg = hbctx.createLinearGradient(0, 0, 512, 128);
+      hbg.addColorStop(0, '#003650'); hbg.addColorStop(0.5, '#0077aa'); hbg.addColorStop(1, '#003650');
+      hbctx.fillStyle = hbg;
+      hbctx.beginPath(); hbctx.roundRect(8, 8, 496, 112, 24); hbctx.fill();
+      hbctx.strokeStyle = '#00f0ff'; hbctx.lineWidth = 6; hbctx.stroke();
+
+      hbctx.shadowColor = '#00f0ff'; hbctx.shadowBlur = 12;
+      hbctx.fillStyle = '#ffffff'; hbctx.font = 'bold 28px Outfit, sans-serif';
+      hbctx.textAlign = 'center'; hbctx.textBaseline = 'middle';
+      hbctx.fillText('🏠  RETURN TO HOME', 256, 64);
+      texHomeBtn = makeTexture(hbc);
+
+      // ── 4. Atlas Texture: all 6 app tiles on one 512×512 canvas (2 cols × 3 rows) ──
       const atc = makeCanvas(512, 384); // 2×3 grid, each cell 256×128
       const atctx = atc.getContext('2d');
       atctx.clearRect(0, 0, 512, 384);
@@ -364,17 +373,49 @@
         }
       }
 
-      // ── Home Button INVISIBLE Hitbox (0 draw calls) ──
-      // Canvas draws home button at Y=100–132 / 512 → center = 116/512 from top
-      // Three.js local Y = screenH*(0.5 - 116/512) = screenH*0.273
-      homeHitbox = new THREE.Mesh(
-        new THREE.PlaneGeometry(screenW * 0.86, screenH * 0.10),
-        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
-      );
-      homeHitbox.position.set(0, screenH * 0.273, Z + 0.002);
-      homeHitbox.userData.active = false;
-      homeHitbox.visible = false;
-      bgScreenMesh.add(homeHitbox);
+      // ── Physical 3D Home Button Mesh (BoxGeometry) ──
+      const btnW = screenW * 0.86;
+      const btnH = screenH * 0.08;
+      const btnD = screenW * 0.025;
+      const btnGeo = new THREE.BoxGeometry(btnW, btnH, btnD);
+      const sideMat  = new THREE.MeshBasicMaterial({ color: 0x005577 });
+      const topMat   = new THREE.MeshBasicMaterial({ color: 0x0088bb });
+      const botMat   = new THREE.MeshBasicMaterial({ color: 0x002244 });
+      const frontMat = new THREE.MeshBasicMaterial({ map: texHomeBtn, side: THREE.FrontSide });
+      const backMat  = new THREE.MeshBasicMaterial({ color: 0x050b14 });
+
+      const materials = [sideMat, sideMat, topMat, botMat, frontMat, backMat];
+      homeButtonMesh = new THREE.Mesh(btnGeo, materials);
+      // Position center so back face sits at screen surface and front face extrudes forward
+      homeButtonMesh.position.set(0, screenH * 0.273, Z + btnD * 0.5 + 0.001);
+      homeButtonMesh.userData = { active: false, defaultZ: Z + btnD * 0.5 + 0.001 };
+      homeButtonMesh.visible = false;
+      bgScreenMesh.add(homeButtonMesh);
+    }
+
+    // ── Tactile 3D Button Press Animation ─────────────────────────────────────
+    function triggerHomeButtonPress(callback) {
+      if (!homeButtonMesh) { if (callback) callback(); return; }
+      const startZ = homeButtonMesh.userData.defaultZ || homeButtonMesh.position.z;
+      const pressedZ = startZ - screenW * 0.015;
+      const t0 = performance.now();
+      const dur = 120;
+      function pressStep() {
+        const elapsed = performance.now() - t0;
+        const progress = Math.min(elapsed / dur, 1);
+        if (progress < 0.5) {
+          homeButtonMesh.position.z = startZ - (progress * 2) * (startZ - pressedZ);
+        } else {
+          homeButtonMesh.position.z = pressedZ + ((progress - 0.5) * 2) * (startZ - pressedZ);
+        }
+        if (progress < 1) {
+          requestAnimationFrame(pressStep);
+        } else {
+          homeButtonMesh.position.z = startZ;
+          if (callback) callback();
+        }
+      }
+      requestAnimationFrame(pressStep);
     }
 
     // ── View Switchers (instant GPU texture swap) ─────────────────────────────
@@ -386,8 +427,8 @@
       // Deactivate app hitboxes — both visible flag AND userData.active
       if (atlasMesh) atlasMesh.visible = false;
       appHitboxes.forEach(h => { h.visible = false; h.userData.active = false; });
-      // Activate home hitbox
-      if (homeHitbox) { homeHitbox.visible = true; homeHitbox.userData.active = true; }
+      // Activate 3D home button
+      if (homeButtonMesh) { homeButtonMesh.visible = true; homeButtonMesh.userData.active = true; }
     }
 
     function openHomepage() {
@@ -398,8 +439,8 @@
       // Activate app hitboxes
       if (atlasMesh) atlasMesh.visible = true;
       appHitboxes.forEach(h => { h.visible = true; h.userData.active = true; });
-      // Deactivate home hitbox
-      if (homeHitbox) { homeHitbox.visible = false; homeHitbox.userData.active = false; }
+      // Deactivate 3D home button
+      if (homeButtonMesh) { homeButtonMesh.visible = false; homeButtonMesh.userData.active = false; }
     }
 
     // ── Raycasting ─────────────────────────────────────────────────────────────
@@ -423,13 +464,16 @@
         const hits = raycaster.intersectObjects(appHitboxes, false);
         if (hits.length > 0) {
           const h = hits[0].object;
-          // userData.active guard: reject if hitbox was deactivated
           if (h.userData.active && h.userData.appKey) openAppView(h.userData.appKey);
         }
       } else if (currentScreenState === 'APP_VIEW') {
-        if (homeHitbox && homeHitbox.userData.active) {
-          const hits = raycaster.intersectObject(homeHitbox, false);
-          if (hits.length > 0) openHomepage();
+        if (homeButtonMesh && homeButtonMesh.userData.active && homeButtonMesh.visible) {
+          const hits = raycaster.intersectObject(homeButtonMesh, true);
+          if (hits.length > 0) {
+            triggerHomeButtonPress(() => {
+              openHomepage();
+            });
+          }
         }
       }
     }
@@ -565,9 +609,13 @@
             if (currentScreenState === 'HOMEPAGE') {
               const hits = raycaster.intersectObjects(appHitboxes, false);
               if (hits.length > 0 && hits[0].object.userData?.appKey) openAppView(hits[0].object.userData.appKey);
-            } else if (currentScreenState === 'APP_VIEW' && homeHitbox) {
-              const hits = raycaster.intersectObject(homeHitbox, false);
-              if (hits.length > 0) openHomepage();
+            } else if (currentScreenState === 'APP_VIEW' && homeButtonMesh && homeButtonMesh.userData.active) {
+              const hits = raycaster.intersectObject(homeButtonMesh, true);
+              if (hits.length > 0) {
+                triggerHomeButtonPress(() => {
+                  openHomepage();
+                });
+              }
             }
           }
         });
