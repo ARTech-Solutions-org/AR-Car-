@@ -414,20 +414,20 @@
       const data = APP_SPECS_DB[appKey];
       if (!data) return;
 
-      // 1. Navigation Header (Prominent Home Button Top Right)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.beginPath(); ctx.roundRect(340, 60, 140, 52, 26); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 1.8; ctx.stroke();
+      // 1. Unity 3D Style Large Home Button Banner (Top Centered)
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+      ctx.beginPath(); ctx.roundRect(86, 54, 340, 64, 32); ctx.fill();
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2.2; ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px Outfit, sans-serif';
+      ctx.font = 'bold 24px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🏠 HOME', 410, 94);
+      ctx.fillText('🏠 RETURN TO HOME', 256, 94);
 
       // 2. App Hero Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.beginPath(); ctx.roundRect(32, 126, 448, 110, 24); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(32, 134, 448, 110, 24); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
       ctx.lineWidth = 1.5; ctx.stroke();
 
@@ -440,28 +440,28 @@
         gold: ['#ffcc00', '#ff9500']
       };
       const colors = bgColors[data.tileClass] || ['#007aff', '#00c6ff'];
-      const tileGrad = ctx.createLinearGradient(52, 148, 116, 212);
+      const tileGrad = ctx.createLinearGradient(52, 156, 116, 220);
       tileGrad.addColorStop(0, colors[0]);
       tileGrad.addColorStop(1, colors[1]);
 
       ctx.fillStyle = tileGrad;
-      ctx.beginPath(); ctx.roundRect(52, 148, 64, 64, 18); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(52, 156, 64, 64, 18); ctx.fill();
 
       ctx.font = '32px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(data.icon, 84, 192);
+      ctx.fillText(data.icon, 84, 200);
 
       ctx.textAlign = 'left';
       ctx.fillStyle = '#00f0ff';
       ctx.font = '700 13px Outfit, sans-serif';
-      ctx.fillText(data.category, 134, 171);
+      ctx.fillText(data.category, 134, 179);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.fillText(data.name, 134, 200);
+      ctx.fillText(data.name, 134, 208);
 
       // 3. Spec Details List
-      const startY = 252;
+      const startY = 258;
       const rowH = 118;
 
       data.specs.forEach((s, idx) => {
@@ -530,9 +530,9 @@
         }
         // Tapping empty wallpaper, header, dock, or status bar DOES NOTHING
       } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping Home Button (top right) or Bottom Home Bar exits to HOMEPAGE
-        const isHomeBtn = (px >= 330 && px <= 490 && py >= 50 && py <= 120);
-        const isBottomBar = (py >= 870);
+        // Unity 3D Canvas Style Home Button & Bottom Bar Hit Boundaries
+        const isHomeBtn = (px >= 70 && px <= 442 && py >= 40 && py <= 130);
+        const isBottomBar = (py >= 850);
 
         if (isHomeBtn || isBottomBar) {
           currentScreenState = 'HOMEPAGE';
