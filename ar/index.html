@@ -264,6 +264,7 @@
     // ── State Machine ─────────────────────────────────────────────────────────
     let carRoot   = null;
     let screenMeshRef = null;
+    let appHitboxMeshes = []; // Discrete 3D Touch Targets for each app
     let placed    = false;
     let carScale  = 1.0;
     let currentScale = 1.0;
@@ -501,36 +502,7 @@
       ctx.fillText('‹ TAP ANYWHERE TO CLOSE APP ›', 256, 922);
     }
 
-    // ── Instant 3D Screen App Raycasting ─────────────────────────────────────
-    function handleScreenRaycast(uv) {
-      if (!uv) return;
-
-      const px = uv.x * 512;
-      const py = (1 - uv.y) * 1024; // Canvas Y is inverted relative to UV Y
-
-      if (currentScreenState === 'HOMEPAGE') {
-        const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
-        
-        // Exact App Grid bounds check
-        if (py >= 150 && py <= 850) {
-          const col = (px < 256) ? 0 : 1;
-          const row = (py < 380) ? 0 : (py < 610) ? 1 : 2;
-          const idx = row * 2 + col;
-
-          if (idx >= 0 && idx < appKeys.length) {
-            currentScreenState = 'APP_VIEW';
-            activeAppKey = appKeys[idx];
-            renderPhoneScreenCanvas();
-          }
-        }
-      } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping anywhere on 3D phone screen closes the app and returns to HOMEPAGE
-        currentScreenState = 'HOMEPAGE';
-        activeAppKey = null;
-        renderPhoneScreenCanvas();
-      }
-    }
-
+    // ── 3D Discrete Hitbox Raycasting ─────────────────────────────────────────
     const raycaster = new THREE.Raycaster();
     const pointer   = new THREE.Vector2();
 
@@ -541,13 +513,25 @@
       pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObject(screenMeshRef, true);
 
-      // Only trigger if pointer ray actually intersects the 3D smartphone screen mesh!
-      if (intersects.length > 0) {
-        const hit = intersects[0];
-        if (hit.uv) {
-          handleScreenRaycast(hit.uv);
+      if (currentScreenState === 'HOMEPAGE') {
+        // Raycast against the 6 discrete 3D App Hitboxes directly attached to the screen face!
+        const intersects = raycaster.intersectObjects(appHitboxMeshes, true);
+        if (intersects.length > 0) {
+          const clickedKey = intersects[0].object.userData?.appKey;
+          if (clickedKey) {
+            currentScreenState = 'APP_VIEW';
+            activeAppKey = clickedKey;
+            renderPhoneScreenCanvas();
+          }
+        }
+      } else if (currentScreenState === 'APP_VIEW') {
+        // Tapping anywhere on the 3D phone display screen in APP_VIEW returns to HOMEPAGE
+        const intersects = raycaster.intersectObject(screenMeshRef, true);
+        if (intersects.length > 0) {
+          currentScreenState = 'HOMEPAGE';
+          activeAppKey = null;
+          renderPhoneScreenCanvas();
         }
       }
     }
@@ -591,7 +575,7 @@
 
       const screenMat = new THREE.MeshBasicMaterial({
         map: screenTextureRef,
-        side: THREE.FrontSide, // Front side only to prevent backface inverted raycasts
+        side: THREE.DoubleSide,
         transparent: true
       });
 
@@ -611,6 +595,37 @@
 
       carRoot.add(screenMesh);
       screenMeshRef = screenMesh;
+
+      // ── Create 6 Discrete 3D App Hitbox Touch Target Meshes ──
+      const appGridDefs = [
+        { key: 'DISPLAY', col: -1, row:  1 },
+        { key: 'CHIPSET', col:  1, row:  1 },
+        { key: 'CAMERA',  col: -1, row:  0 },
+        { key: 'BATTERY', col:  1, row:  0 },
+        { key: 'NETWORK', col: -1, row: -1 },
+        { key: 'MEMORY',  col:  1, row: -1 },
+      ];
+
+      const hbGeo = new THREE.PlaneGeometry(screenW * 0.44, screenH * 0.24);
+      appHitboxMeshes = [];
+
+      appGridDefs.forEach(def => {
+        const hbMat = new THREE.MeshBasicMaterial({
+          visible: false, // Invisible 3D touch target
+          side: THREE.DoubleSide
+        });
+        const hbMesh = new THREE.Mesh(hbGeo, hbMat);
+
+        const localX = def.col * screenW * 0.23;
+        const localY = def.row * screenH * 0.22;
+        const localZ = 0.005; // Slightly in front of screen plane
+
+        hbMesh.position.set(localX, localY, localZ);
+        hbMesh.userData = { appKey: def.key };
+
+        screenMesh.add(hbMesh);
+        appHitboxMeshes.push(hbMesh);
+      });
 
       carRoot.visible = false;
       scene.add(carRoot);
@@ -764,11 +779,21 @@
             reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
             placeCar(pos);
           } else if (placed && screenMeshRef) {
-            // WebXR Raycast against 3D screen mesh
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            const intersects = raycaster.intersectObject(screenMeshRef, true);
-            if (intersects.length > 0 && intersects[0].uv) {
-              handleScreenRaycast(intersects[0].uv);
+            if (currentScreenState === 'HOMEPAGE') {
+              const intersects = raycaster.intersectObjects(appHitboxMeshes, true);
+              if (intersects.length > 0 && intersects[0].object.userData?.appKey) {
+                currentScreenState = 'APP_VIEW';
+                activeAppKey = intersects[0].object.userData.appKey;
+                renderPhoneScreenCanvas();
+              }
+            } else if (currentScreenState === 'APP_VIEW') {
+              const intersects = raycaster.intersectObject(screenMeshRef, true);
+              if (intersects.length > 0) {
+                currentScreenState = 'HOMEPAGE';
+                activeAppKey = null;
+                renderPhoneScreenCanvas();
+              }
             }
           }
         });
