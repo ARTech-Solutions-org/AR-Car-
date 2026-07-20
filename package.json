@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A two-part web experience: a kiosk-style AI photobooth and a mobile WebAR car viewer.",
   "scripts": {
-    "start": "node server.js"
+    "dev": "node server.js"
   },
   "keywords": [],
   "author": "",
