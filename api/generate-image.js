@@ -32,21 +32,20 @@ async function generateWithGeminiImage(API_KEY, imageBase64) {
 
   const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3-pro-image-preview';
 
-  const prompt = `You are given a photo of a real person. Generate a hyper-realistic AI portrait of EXACTLY the same person — preserve their precise facial features, skin tone, hair color and style, face shape, and clothing with perfect accuracy.
+  const prompt = `You are given a photo of a real person. Generate a hyper-realistic AI portrait of EXACTLY the same person — preserve their precise facial features, skin tone, hair color and style, face shape, and clothing with perfect 100% accuracy.
 
-Place this person standing confidently in the center of the frame, full body from head to toe, facing the camera in a relaxed natural pose.
+POSE & PRODUCT:
+- The person is holding a sleek, modern, ultra-thin flagship smartphone in a natural selfie holding position, angled slightly towards the camera as if taking a photo.
 
-BACKGROUND: A futuristic luxury MG automotive showroom:
-- A sleek silver MG7 sedan positioned behind the person, MG logo clearly visible, realistic metallic paint
+BACKGROUND: A futuristic flagship mobile tech showroom:
 - Ultra-glossy dark reflective floor tiles showing mirror reflections
-- Industrial ceiling with parallel LED strip lights and security cameras
-- Walls with glowing cyan-blue holographic screens showing car schematics and aerodynamic data
-- Amber/gold neon accent lines on pillars
+- Background walls with glowing cyan-blue and violet holographic screens displaying mobile UI schematics, microchip circuit diagrams, and futuristic tech wireframes
+- Industrial ceiling with cool-white LED strip lights and soft ambient neon glow
 - Wide-angle depth perspective, dramatic cinematic feel
 
-STYLE: Hyper-realistic photographic quality, 8K, cinematic color grade with cool blue-teal shadows and warm amber highlights, professional studio three-point lighting, vertical portrait format (9:16).
+STYLE: Hyper-realistic photographic quality, 8K, cinematic color grade with cool blue-teal shadows and warm ambient highlights, professional studio lighting, vertical portrait format (9:16).
 
-CRITICAL: The person's face must match the input photo EXACTLY. Do NOT change their appearance.`;
+CRITICAL: The person's face and identity must match the input photo EXACTLY. Do NOT change their appearance.`;
 
   const payload = JSON.stringify({
     contents: [{

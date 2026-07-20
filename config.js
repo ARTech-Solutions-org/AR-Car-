@@ -33,26 +33,28 @@ const CONFIG = {
       : "https://10.10.8.236:8443/ar/index.html";
   },
 
-  // ── Car / Event Config ──────────────────────────────────────
-  CAR_MODEL: "MG7",
-  EVENT_NAME: "MG Experience",
+  // ── Product / Event Config ──────────────────────────────────
+  CAR_MODEL: "Flagship Smartphone",
+  EVENT_NAME: "Mobile Experience",
+  MODEL_PATH: "/mobile.glb", // ← Put your 3D mobile GLB file in the root folder and set its filename here
 
   // ── Image Prompt ───────────────────────────────────────────
-  // The person's photo is sent as a SUBJECT reference — Imagen will keep
-  // their exact face, hair, and clothing and place them in this new scene.
+  // The person's photo is sent as a SUBJECT reference — Gemini will keep
+  // their exact face, hair, and clothing and render them holding a phone in a selfie pose.
   get IMAGE_PROMPT() {
-    return `Hyper-realistic futuristic luxury automotive tech showroom background.
+    return `Hyper-realistic futuristic luxury mobile technology showroom background.
+
+SUBJECT & POSE:
+- The person from the photo is standing confidently in the center of the frame, holding a sleek modern mobile smartphone in a natural selfie position, angled towards the camera.
+- Preserve their exact facial features, skin tone, hair color and style, face shape, and clothing with perfect 100% accuracy.
 
 BACKGROUND SCENE: 
-- A sleek ${this.CAR_MODEL} sedan in pearl metallic silver is positioned prominently in the center at a slight 3/4 angle. The MG logo is clearly visible on the front grille. Realistic metallic paint, sharp LED headlights, premium body lines.
-- Floor: ultra-glossy dark reflective tiles showing perfect mirror reflections of the car and ceiling lights with warm amber glow
-- Ceiling: structural black industrial grid ceiling with bright cool-white LED strip lights arranged in parallel lines and dome security cameras mounted at corners
-- Left and right background walls: large glowing holographic digital screens displaying car blueprint schematics, aerodynamic telemetry data graphs, and car design wireframes in cyan-blue color on dark panels. Multiple alloy wheels and exhaust parts mounted on side walls as display pieces.
-- Vertical structural pillars with warm amber/gold neon accent lines running along edges
-- Dramatic wide-angle depth perspective making the space feel large and impressive
-- Overall color mood: dark background, cool cyan-blue holographic lighting, warm amber floor reflections
+- Futuristic flagship mobile tech showroom with glowing neon accents.
+- Floor: ultra-glossy dark reflective tiles showing mirror reflections of ambient lights.
+- Walls: large glowing holographic screens displaying mobile UI schematics, microchip circuit diagrams, and futuristic tech wireframes in cyan-blue and violet colors.
+- Dramatic wide-angle depth perspective making the tech space feel large and impressive.
 
-LIGHTING: Professional studio lighting highlighting the car with warm amber accent backlighting. Sharp defined shadows. 
-CAMERA: 24mm wide-angle lens, vertical 9:16 composition (1080x1920), cinematic color grade with cool blue-teal shadows and warm amber-gold highlights. Empty scene, NO people in the image.`;
+LIGHTING: Professional studio lighting with cool cyan-blue shadows and warm ambient highlights.
+CAMERA: 24mm wide-angle lens, vertical 9:16 composition (1080x1920), cinematic color grade.`;
   }
 };

@@ -5,6 +5,7 @@
   <title>MG7 — AR Experience</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="/config.js"></script>
   <style>
     :root { --mg-red: #da291c; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -242,7 +243,8 @@
     draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     loader.setDRACOLoader(draco);
 
-    loader.load('/mg7.glb', (gltf) => {
+    const modelPath = (typeof CONFIG !== 'undefined' && CONFIG.MODEL_PATH) ? CONFIG.MODEL_PATH : '/mg7.glb';
+    loader.load(modelPath, (gltf) => {
       carRoot = gltf.scene;
       const box = new THREE.Box3().setFromObject(carRoot);
       const sz  = new THREE.Vector3();
