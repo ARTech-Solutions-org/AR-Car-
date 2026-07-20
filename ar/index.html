@@ -107,7 +107,7 @@
   <div id="tap-prompt">👆 Tap to place the phone</div>
 
   <div id="hint-bar">
-    <span>📱 Tap an App on Screen to open</span>
+    <span>📱 Tap an App Icon to open</span>
     <span>↔ Drag to rotate</span>
     <span>🤏 Pinch to resize</span>
   </div>
@@ -304,7 +304,7 @@
       ctx.fillStyle = 'rgba(175, 82, 222, 0.18)';
       ctx.beginPath(); ctx.arc(400, 750, 220, 0, Math.PI * 2); ctx.fill();
 
-      // 2. Top Status Bar (both screens)
+      // 2. Top Status Bar
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
       ctx.textAlign = 'left';
@@ -500,45 +500,56 @@
       ctx.fillStyle = '#00f0ff';
       ctx.font = 'bold 20px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('‹ TAP ANYWHERE TO CLOSE APP ›', 256, 922);
+      ctx.fillText('‹ TAP BACK OR HOME TO EXIT ›', 256, 922);
     }
 
-    // ── Local Object Space 3D Raycasting (100% Wobble & Rotation Proof) ──────
+    // ── Unity-Style 3D Button Raycasting (Strict Icon Box Boundaries) ───────
     function processLocal3DHit(hitPointWorld) {
       if (!screenMeshRef) return;
 
-      // Convert 3D world collision point directly into screenMeshRef's immutable local space
+      // Convert 3D world collision point directly into screenMeshRef's local space
       const localHit = screenMeshRef.worldToLocal(hitPointWorld.clone());
 
+      // Convert local coordinates (X: [-w/2 .. +w/2], Y: [-h/2 .. +h/2]) to canvas pixels (0..512, 0..1024)
+      const px = ((localHit.x / screenW) + 0.5) * 512;
+      const py = (0.5 - (localHit.y / screenH)) * 1024;
+
       if (currentScreenState === 'HOMEPAGE') {
-        const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
+        const apps = [
+          { key: 'DISPLAY' }, { key: 'CHIPSET' },
+          { key: 'CAMERA'  }, { key: 'BATTERY' },
+          { key: 'NETWORK' }, { key: 'MEMORY'  }
+        ];
 
-        // Determine Column (0 = Left [localHit.x < 0], 1 = Right [localHit.x >= 0])
-        const col = (localHit.x < 0) ? 0 : 1;
+        const colW = 200, rowH = 190;
+        const startX = 36, startY = 180;
 
-        // Determine Row based on local 3D height relative to phone center
-        const topBound    = screenH * 0.14;
-        const bottomBound = -screenH * 0.14;
+        // Check if tap fell inside any of the 6 exact App Icon Card boxes
+        for (let idx = 0; idx < apps.length; idx++) {
+          const col = idx % 2;
+          const row = Math.floor(idx / 2);
+          const x = startX + col * (colW + 40);
+          const y = startY + row * rowH;
 
-        let row = 1; // Middle Row (Camera / Battery)
-        if (localHit.y > topBound) {
-          row = 0;   // Top Row (Display / Chipset)
-        } else if (localHit.y < bottomBound) {
-          row = 2;   // Bottom Row (Network / Memory)
+          if (px >= x && px <= x + colW && py >= y && py <= y + 160) {
+            currentScreenState = 'APP_VIEW';
+            activeAppKey = apps[idx].key;
+            renderPhoneScreenCanvas();
+            return;
+          }
         }
+        // Tapping empty wallpaper, header, dock, or status bar DOES NOTHING
+      } else if (currentScreenState === 'APP_VIEW') {
+        // Tapping Back Button (top left), Home Button (top right), or Bottom Bar exits to HOMEPAGE
+        const isBackBtn = (px >= 30 && px <= 180 && py >= 50 && py <= 120);
+        const isHomeBtn = (px >= 330 && px <= 490 && py >= 50 && py <= 120);
+        const isBottomBar = (py >= 870);
 
-        const idx = row * 2 + col;
-
-        if (idx >= 0 && idx < appKeys.length) {
-          currentScreenState = 'APP_VIEW';
-          activeAppKey = appKeys[idx];
+        if (isBackBtn || isHomeBtn || isBottomBar) {
+          currentScreenState = 'HOMEPAGE';
+          activeAppKey = null;
           renderPhoneScreenCanvas();
         }
-      } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping anywhere on the 3D phone screen in APP_VIEW returns cleanly to HOMEPAGE
-        currentScreenState = 'HOMEPAGE';
-        activeAppKey = null;
-        renderPhoneScreenCanvas();
       }
     }
 
