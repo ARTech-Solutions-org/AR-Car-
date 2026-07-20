@@ -357,7 +357,7 @@
         for (const col of COLS) {
           const hb = new THREE.Mesh(new THREE.PlaneGeometry(hbW, hbH), invisMat);
           hb.position.set(col * colStep, -screenH * 0.06 + row * rowStep, Z + 0.002);
-          hb.userData = { appKey: APPS[ai].key };
+          hb.userData = { appKey: APPS[ai].key, active: true }; // active=true on HOMEPAGE
           bgScreenMesh.add(hb);
           appHitboxes.push(hb);
           ai++;
@@ -365,14 +365,15 @@
       }
 
       // ── Home Button INVISIBLE Hitbox (0 draw calls) ──
-      // Drawn visually on the bgScreen canvas texture; hitbox sits at top of screen
+      // Canvas draws home button at Y=100–132 / 512 → center = 116/512 from top
+      // Three.js local Y = screenH*(0.5 - 116/512) = screenH*0.273
       homeHitbox = new THREE.Mesh(
-        new THREE.PlaneGeometry(screenW * 0.82, screenH * 0.095),
+        new THREE.PlaneGeometry(screenW * 0.86, screenH * 0.10),
         new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
       );
-      // Top of screen area where the home button is drawn on the canvas
-      homeHitbox.position.set(0, screenH * 0.30, Z + 0.002);
-      homeHitbox.visible = false; // also hidden from app state toggle
+      homeHitbox.position.set(0, screenH * 0.273, Z + 0.002);
+      homeHitbox.userData.active = false;
+      homeHitbox.visible = false;
       bgScreenMesh.add(homeHitbox);
     }
 
@@ -380,48 +381,53 @@
     function openAppView(appKey) {
       currentScreenState = 'APP_VIEW';
       activeAppKey = appKey;
-      // Swap background to pre-rendered spec texture
       bgScreenMesh.material.map = texAppSpec[appKey];
       bgScreenMesh.material.needsUpdate = true;
-      // Hide atlas overlay; show home hitbox
+      // Deactivate app hitboxes — both visible flag AND userData.active
       if (atlasMesh) atlasMesh.visible = false;
-      appHitboxes.forEach(h => h.visible = false);
-      if (homeHitbox) homeHitbox.visible = true;
+      appHitboxes.forEach(h => { h.visible = false; h.userData.active = false; });
+      // Activate home hitbox
+      if (homeHitbox) { homeHitbox.visible = true; homeHitbox.userData.active = true; }
     }
 
     function openHomepage() {
       currentScreenState = 'HOMEPAGE';
       activeAppKey = null;
-      // Restore wallpaper
       bgScreenMesh.material.map = texWallpaper;
       bgScreenMesh.material.needsUpdate = true;
-      // Show atlas overlay; hide home hitbox
+      // Activate app hitboxes
       if (atlasMesh) atlasMesh.visible = true;
-      appHitboxes.forEach(h => h.visible = true);
-      if (homeHitbox) homeHitbox.visible = false;
+      appHitboxes.forEach(h => { h.visible = true; h.userData.active = true; });
+      // Deactivate home hitbox
+      if (homeHitbox) { homeHitbox.visible = false; homeHitbox.userData.active = false; }
     }
 
     // ── Raycasting ─────────────────────────────────────────────────────────────
     const raycaster = new THREE.Raycaster();
     const pointer   = new THREE.Vector2();
 
+    // Debounce: mobile fires touchend + click ~300ms apart — only allow 1 per 450ms
+    let _lastClickTime = 0;
+
     function checkScreenClick(clientX, clientY) {
       if (!placed || !bgScreenMesh) return;
+      const now = Date.now();
+      if (now - _lastClickTime < 450) return; // block double-fire
+      _lastClickTime = now;
 
       pointer.x = (clientX / window.innerWidth) * 2 - 1;
       pointer.y = -(clientY / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
 
       if (currentScreenState === 'HOMEPAGE') {
-        // Raycast against 6 invisible hitboxes — exact 3D mesh intersection
         const hits = raycaster.intersectObjects(appHitboxes, false);
         if (hits.length > 0) {
-          const key = hits[0].object.userData?.appKey;
-          if (key) openAppView(key);
+          const h = hits[0].object;
+          // userData.active guard: reject if hitbox was deactivated
+          if (h.userData.active && h.userData.appKey) openAppView(h.userData.appKey);
         }
       } else if (currentScreenState === 'APP_VIEW') {
-        // Raycast against home hitbox mesh — exact 3D mesh intersection
-        if (homeHitbox) {
+        if (homeHitbox && homeHitbox.userData.active) {
           const hits = raycaster.intersectObject(homeHitbox, false);
           if (hits.length > 0) openHomepage();
         }
