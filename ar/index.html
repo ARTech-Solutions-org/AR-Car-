@@ -503,24 +503,28 @@
 
     // ── Instant 3D Screen App Raycasting ─────────────────────────────────────
     function handleScreenRaycast(uv) {
+      if (!uv) return;
+
       const px = uv.x * 512;
       const py = (1 - uv.y) * 1024; // Canvas Y is inverted relative to UV Y
 
       if (currentScreenState === 'HOMEPAGE') {
         const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
         
-        // 100% Full Canvas Grid Zones (Zero dead pixels!)
-        const col = (px < 256) ? 0 : 1;
-        const row = (py < 360) ? 0 : (py < 620) ? 1 : 2;
-        const idx = row * 2 + col;
+        // Exact App Grid bounds check
+        if (py >= 150 && py <= 850) {
+          const col = (px < 256) ? 0 : 1;
+          const row = (py < 380) ? 0 : (py < 610) ? 1 : 2;
+          const idx = row * 2 + col;
 
-        if (idx >= 0 && idx < appKeys.length) {
-          currentScreenState = 'APP_VIEW';
-          activeAppKey = appKeys[idx];
-          renderPhoneScreenCanvas();
+          if (idx >= 0 && idx < appKeys.length) {
+            currentScreenState = 'APP_VIEW';
+            activeAppKey = appKeys[idx];
+            renderPhoneScreenCanvas();
+          }
         }
       } else if (currentScreenState === 'APP_VIEW') {
-        // In APP_VIEW mode, tapping ANYWHERE on the 3D phone screen closes the app and returns to HOMEPAGE!
+        // Tapping anywhere on 3D phone screen closes the app and returns to HOMEPAGE
         currentScreenState = 'HOMEPAGE';
         activeAppKey = null;
         renderPhoneScreenCanvas();
@@ -537,11 +541,14 @@
       pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObject(screenMeshRef);
+      const intersects = raycaster.intersectObject(screenMeshRef, true);
 
+      // Only trigger if pointer ray actually intersects the 3D smartphone screen mesh!
       if (intersects.length > 0) {
-        const uv = intersects[0].uv;
-        handleScreenRaycast(uv);
+        const hit = intersects[0];
+        if (hit.uv) {
+          handleScreenRaycast(hit.uv);
+        }
       }
     }
 
@@ -564,24 +571,44 @@
       carScale = 1.0 / Math.max(sz.x, sz.y, sz.z);
       currentScale = carScale;
 
-      // Attach 3D Smartphone Screen Canvas Texture directly to the 3D phone model!
+      // ── Auto-Detect Smartphone 3D Axis Orientation ──
+      const dimensions = [
+        { axis: 'x', size: sz.x },
+        { axis: 'y', size: sz.y },
+        { axis: 'z', size: sz.z }
+      ].sort((a, b) => a.size - b.size);
+
+      const depthDim  = dimensions[0]; // Smallest = Thickness
+      const widthDim  = dimensions[1]; // Middle   = Screen Width
+      const heightDim = dimensions[2]; // Largest  = Screen Height
+
+      const screenW = widthDim.size * 0.92;
+      const screenH = heightDim.size * 0.92;
+
       const screenCanvasEl = renderPhoneScreenCanvas();
       screenTextureRef = new THREE.CanvasTexture(screenCanvasEl);
       screenTextureRef.colorSpace = THREE.SRGBColorSpace;
 
       const screenMat = new THREE.MeshBasicMaterial({
         map: screenTextureRef,
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide, // Front side only to prevent backface inverted raycasts
         transparent: true
       });
 
-      const screenW = sz.x * 0.95;
-      const screenH = sz.y * 0.95;
       const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
       const screenMesh = new THREE.Mesh(screenGeo, screenMat);
 
-      // Position screen mesh flush against the 3D phone front face
-      screenMesh.position.set(ctr.x, ctr.y, ctr.z + sz.z * 0.51);
+      // Align 3D Screen Mesh flush against front display face of 3D phone model
+      if (depthDim.axis === 'z') {
+        screenMesh.position.set(ctr.x, ctr.y, ctr.z + depthDim.size * 0.51);
+      } else if (depthDim.axis === 'y') {
+        screenMesh.rotation.x = -Math.PI / 2;
+        screenMesh.position.set(ctr.x, ctr.y + depthDim.size * 0.51, ctr.z);
+      } else if (depthDim.axis === 'x') {
+        screenMesh.rotation.y = Math.PI / 2;
+        screenMesh.position.set(ctr.x + depthDim.size * 0.51, ctr.y, ctr.z);
+      }
+
       carRoot.add(screenMesh);
       screenMeshRef = screenMesh;
 
@@ -618,7 +645,7 @@
         touchStartX = e.touches[0].clientX;
         touchStartY = e.touches[0].clientY;
         lastDragX   = touchStartX;
-        dragActive  = false; // Only become active if finger moves > 8px
+        dragActive  = false;
       } else if (e.touches.length === 2) {
         dragActive    = false;
         pinchActive   = true;
@@ -633,7 +660,6 @@
         const dx = e.touches[0].clientX - lastDragX;
         const totalDist = Math.hypot(e.touches[0].clientX - touchStartX, e.touches[0].clientY - touchStartY);
 
-        // Only rotate if finger moved more than 8 pixels (drag, not tap!)
         if (totalDist > 8) {
           dragActive = true;
           lastDragX = e.touches[0].clientX;
@@ -655,8 +681,7 @@
         const endY = e.changedTouches[0].clientY;
         const totalDist = Math.hypot(endX - touchStartX, endY - touchStartY);
 
-        // If total finger movement was under 10px, execute an INSTANT TAP!
-        if (totalDist <= 10) {
+        if (totalDist <= 8) {
           checkScreenClick(endX, endY);
         }
       }
@@ -739,10 +764,10 @@
             reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
             placeCar(pos);
           } else if (placed && screenMeshRef) {
-            // WebXR Instant Tap Raycast against 3D phone screen
+            // WebXR Raycast against 3D screen mesh
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            const intersects = raycaster.intersectObject(screenMeshRef);
-            if (intersects.length > 0) {
+            const intersects = raycaster.intersectObject(screenMeshRef, true);
+            if (intersects.length > 0 && intersects[0].uv) {
               handleScreenRaycast(intersects[0].uv);
             }
           }
