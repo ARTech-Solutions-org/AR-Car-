@@ -107,7 +107,7 @@
   <div id="tap-prompt">👆 Tap to place the phone</div>
 
   <div id="hint-bar">
-    <span>📱 Tap an App Icon to open</span>
+    <span>📱 Tap a 3D App Button on screen to open</span>
     <span>↔ Drag to rotate</span>
     <span>🤏 Pinch to resize</span>
   </div>
@@ -269,28 +269,96 @@
     let placed    = false;
     let carScale  = 1.0;
     let currentScale = 1.0;
-    let autoRotate   = false;
     let carYaw    = 0;
 
     let currentScreenState = 'HOMEPAGE'; // 'HOMEPAGE' | 'APP_VIEW'
     let activeAppKey = null;
-    let screenCanvas = null;
-    let screenCtx = null;
-    let screenTextureRef = null;
 
-    // ── 3D Smartphone Display Canvas Renderer ─────────────────────────────────
-    function renderPhoneScreenCanvas() {
-      if (!screenCanvas) {
-        screenCanvas = document.createElement('canvas');
-        screenCanvas.width = 512;
-        screenCanvas.height = 1024;
-        screenCtx = screenCanvas.getContext('2d');
-      }
+    let bgScreenMesh = null;
+    let app3DButtonMeshes = []; // Array of discrete 3D App Button Meshes
+    let home3DButtonMesh = null; // Discrete 3D Home Button Mesh
 
-      const ctx = screenCtx;
-      ctx.clearRect(0, 0, 512, 1024);
+    // ── Texture Generator Helpers for 3D Mesh Buttons ─────────────────────────
+    function create3DTileTexture(app) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 200;
+      const ctx = canvas.getContext('2d');
 
-      // 1. Sleek OLED Gradient Wallpaper
+      // Card Background
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+      ctx.beginPath(); ctx.roundRect(8, 8, 240, 184, 28); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 2.5; ctx.stroke();
+
+      // Icon Squircle
+      const bgColors = {
+        blue: ['#007aff', '#00c6ff'],
+        purple: ['#af52de', '#7928ca'],
+        red: ['#ff3b30', '#ff9500'],
+        green: ['#34c759', '#30d158'],
+        cyan: ['#5ac8fa', '#007aff'],
+        gold: ['#ffcc00', '#ff9500']
+      };
+      const colors = bgColors[app.tileClass] || ['#007aff', '#00c6ff'];
+      const grad = ctx.createLinearGradient(24, 24, 84, 84);
+      grad.addColorStop(0, colors[0]);
+      grad.addColorStop(1, colors[1]);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(24, 24, 60, 60, 16); ctx.fill();
+
+      // Icon Emoji
+      ctx.font = '32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(app.icon, 54, 66);
+
+      // Title & Specs
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.font = '600 15px Outfit, sans-serif';
+      ctx.fillText(app.title, 24, 112);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.fillText(app.val, 24, 142);
+
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '600 15px Outfit, sans-serif';
+      ctx.fillText(app.detail, 24, 168);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function create3DHomeButtonTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 440;
+      canvas.height = 90;
+      const ctx = canvas.getContext('2d');
+
+      // Home Button Card
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.28)';
+      ctx.beginPath(); ctx.roundRect(8, 8, 424, 74, 37); ctx.fill();
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 3; ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏠 RETURN TO HOME', 220, 54);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function createOLEDWallpaperTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
       const grad = ctx.createLinearGradient(0, 0, 512, 1024);
       grad.addColorStop(0, '#0c0e17');
       grad.addColorStop(0.5, '#121626');
@@ -304,33 +372,12 @@
       ctx.fillStyle = 'rgba(175, 82, 222, 0.18)';
       ctx.beginPath(); ctx.arc(400, 750, 220, 0, Math.PI * 2); ctx.fill();
 
-      // 2. Top Status Bar
+      // Top Status Bar
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('09:41', 32, 45);
+      ctx.textAlign = 'left'; ctx.fillText('09:41', 32, 45);
+      ctx.textAlign = 'right'; ctx.fillText('5G  100%', 480, 45);
 
-      ctx.textAlign = 'right';
-      ctx.font = '20px Outfit, sans-serif';
-      ctx.fillText('5G  100%', 480, 45);
-
-      if (currentScreenState === 'HOMEPAGE') {
-        renderHomepageContent(ctx);
-      } else if (currentScreenState === 'APP_VIEW' && activeAppKey) {
-        renderAppViewContent(ctx, activeAppKey);
-      }
-
-      // 3. Home Bar Indicator at bottom
-      ctx.fillStyle = currentScreenState === 'APP_VIEW' ? '#00f0ff' : '#ffffff';
-      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
-
-      if (screenTextureRef) {
-        screenTextureRef.needsUpdate = true;
-      }
-      return screenCanvas;
-    }
-
-    function renderHomepageContent(ctx) {
       // Header Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath(); ctx.roundRect(32, 70, 448, 80, 20); ctx.fill();
@@ -339,209 +386,208 @@
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 26px Outfit, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText('FLAGSHIP PHONE', 56, 110);
+      ctx.textAlign = 'left'; ctx.fillText('FLAGSHIP PHONE', 56, 110);
       ctx.fillStyle = '#00f0ff';
-      ctx.font = '600 16px Outfit, sans-serif';
-      ctx.fillText('⚡ 5G ULTRA POWERED', 56, 134);
-
-      // App Icons Grid (2 columns x 3 rows)
-      const apps = [
-        { icon: '📱', bg1: '#007aff', bg2: '#00c6ff', title: 'DISPLAY', val: '6.7" OLED', detail: '120Hz LTPO' },
-        { icon: '⚡', bg1: '#af52de', bg2: '#7928ca', title: 'CHIPSET', val: '3nm Bionic', detail: 'Octa-Core' },
-        { icon: '📸', bg1: '#ff3b30', bg2: '#ff9500', title: 'CAMERA', val: '200 MP', detail: '8K HDR Video' },
-        { icon: '🔋', bg1: '#34c759', bg2: '#30d158', title: 'BATTERY', val: '5000 mAh', detail: '100W Fast' },
-        { icon: '📶', bg1: '#5ac8fa', bg2: '#007aff', title: 'NETWORK', val: 'Ultra 5G', detail: 'Wi-Fi 7' },
-        { icon: '💾', bg1: '#ffcc00', bg2: '#ff9500', title: 'MEMORY', val: '512 GB', detail: '16GB RAM' },
-      ];
-
-      const colW = 200;
-      const rowH = 190;
-      const startX = 36;
-      const startY = 180;
-
-      apps.forEach((app, idx) => {
-        const col = idx % 2;
-        const row = Math.floor(idx / 2);
-        const x = startX + col * (colW + 40);
-        const y = startY + row * rowH;
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.beginPath(); ctx.roundRect(x, y, colW, 160, 24); ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 1; ctx.stroke();
-
-        const tileGrad = ctx.createLinearGradient(x + 16, y + 16, x + 64, y + 64);
-        tileGrad.addColorStop(0, app.bg1);
-        tileGrad.addColorStop(1, app.bg2);
-        ctx.fillStyle = tileGrad;
-        ctx.beginPath(); ctx.roundRect(x + 16, y + 16, 52, 52, 14); ctx.fill();
-
-        ctx.font = '26px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(app.icon, x + 42, y + 52);
-
-        ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-        ctx.font = '600 13px Outfit, sans-serif';
-        ctx.fillText(app.title, x + 16, y + 94);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px Outfit, sans-serif';
-        ctx.fillText(app.val, x + 16, y + 120);
-
-        ctx.fillStyle = '#00f0ff';
-        ctx.font = '600 13px Outfit, sans-serif';
-        ctx.fillText(app.detail, x + 16, y + 142);
-      });
+      ctx.font = '600 16px Outfit, sans-serif'; ctx.fillText('⚡ 5G ULTRA POWERED', 56, 134);
 
       // Bottom App Dock
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.beginPath(); ctx.roundRect(32, 860, 448, 90, 32); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.stroke();
 
       const dockIcons = ['📞', '💬', '🌐', '⚙️'];
       dockIcons.forEach((ic, i) => {
-        const dx = 80 + i * 110;
-        ctx.font = '36px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(ic, dx, 918);
+        ctx.font = '36px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(ic, 80 + i * 110, 918);
       });
+
+      // Bottom Home Indicator Bar
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
     }
 
-    function renderAppViewContent(ctx, appKey) {
+    function createScreenAppViewTexture(appKey) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
       const data = APP_SPECS_DB[appKey];
-      if (!data) return;
+      if (!data) return null;
 
-      // 1. Unity 3D Style Large Home Button Banner (Top Centered)
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
-      ctx.beginPath(); ctx.roundRect(86, 54, 340, 64, 32); ctx.fill();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 2.2; ctx.stroke();
+      // OLED Wallpaper
+      const grad = ctx.createLinearGradient(0, 0, 512, 1024);
+      grad.addColorStop(0, '#0c0e17');
+      grad.addColorStop(0.5, '#121626');
+      grad.addColorStop(1, '#080910');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 1024);
 
+      // Status Bar
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🏠 RETURN TO HOME', 256, 94);
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.textAlign = 'left'; ctx.fillText('09:41', 32, 45);
+      ctx.textAlign = 'right'; ctx.fillText('5G  100%', 480, 45);
 
-      // 2. App Hero Card
+      // App Hero Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath(); ctx.roundRect(32, 134, 448, 110, 24); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
       ctx.lineWidth = 1.5; ctx.stroke();
 
       const bgColors = {
-        blue: ['#007aff', '#00c6ff'],
-        purple: ['#af52de', '#7928ca'],
-        red: ['#ff3b30', '#ff9500'],
-        green: ['#34c759', '#30d158'],
-        cyan: ['#5ac8fa', '#007aff'],
-        gold: ['#ffcc00', '#ff9500']
+        blue: ['#007aff', '#00c6ff'], purple: ['#af52de', '#7928ca'],
+        red: ['#ff3b30', '#ff9500'], green: ['#34c759', '#30d158'],
+        cyan: ['#5ac8fa', '#007aff'], gold: ['#ffcc00', '#ff9500']
       };
       const colors = bgColors[data.tileClass] || ['#007aff', '#00c6ff'];
       const tileGrad = ctx.createLinearGradient(52, 156, 116, 220);
       tileGrad.addColorStop(0, colors[0]);
       tileGrad.addColorStop(1, colors[1]);
-
       ctx.fillStyle = tileGrad;
       ctx.beginPath(); ctx.roundRect(52, 156, 64, 64, 18); ctx.fill();
 
-      ctx.font = '32px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(data.icon, 84, 200);
+      ctx.font = '32px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(data.icon, 84, 200);
 
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = '700 13px Outfit, sans-serif';
-      ctx.fillText(data.category, 134, 179);
+      ctx.fillStyle = '#00f0ff'; ctx.font = '700 13px Outfit, sans-serif'; ctx.fillText(data.category, 134, 179);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 22px Outfit, sans-serif'; ctx.fillText(data.name, 134, 208);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.fillText(data.name, 134, 208);
-
-      // 3. Spec Details List
+      // Specs List
       const startY = 258;
       const rowH = 118;
-
       data.specs.forEach((s, idx) => {
         const y = startY + idx * rowH;
-
         ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
         ctx.beginPath(); ctx.roundRect(32, y, 448, 102, 20); ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-        ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'; ctx.lineWidth = 1; ctx.stroke();
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-        ctx.font = '600 14px Outfit, sans-serif';
-        ctx.fillText(s.label, 54, y + 38);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 21px Outfit, sans-serif';
-        ctx.fillText(s.val, 54, y + 74);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)'; ctx.font = '600 14px Outfit, sans-serif'; ctx.fillText(s.label, 54, y + 38);
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 21px Outfit, sans-serif'; ctx.fillText(s.val, 54, y + 74);
       });
 
-      // 4. Bottom Close Bar Banner
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
-      ctx.beginPath(); ctx.roundRect(32, 876, 448, 76, 38); ctx.fill();
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 1.5; ctx.stroke();
-
+      // Bottom Indicator
       ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 20px Outfit, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('‹ TAP HOME TO EXIT ›', 256, 922);
+      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
     }
 
-    // ── Local Object Space Button Raycasting ─────────────────────────────────
-    function processLocal3DHit(hitPointWorld) {
-      if (!screenMeshRef) return;
+    // ── Build Discrete 3D Interactive Mesh Buttons ──────────────────────────
+    function build3DButtons(screenMesh) {
+      const appDefs = [
+        { key: 'DISPLAY', col: -1, row:  1, icon: '📱', tileClass: 'blue', title: 'DISPLAY', val: '6.7" OLED', detail: '120Hz LTPO' },
+        { key: 'CHIPSET', col:  1, row:  1, icon: '⚡', tileClass: 'purple', title: 'CHIPSET', val: '3nm Bionic', detail: 'Octa-Core' },
+        { key: 'CAMERA',  col: -1, row:  0, icon: '📸', tileClass: 'red', title: 'CAMERA', val: '200 MP', detail: '8K HDR Video' },
+        { key: 'BATTERY', col:  1, row:  0, icon: '🔋', tileClass: 'green', title: 'BATTERY', val: '5000 mAh', detail: '100W Fast' },
+        { key: 'NETWORK', col: -1, row: -1, icon: '📶', tileClass: 'cyan', title: 'NETWORK', val: 'Ultra 5G', detail: 'Wi-Fi 7' },
+        { key: 'MEMORY',  col:  1, row: -1, icon: '💾', tileClass: 'gold', title: 'MEMORY', val: '512 GB', detail: '16GB RAM' },
+      ];
 
-      // Convert 3D world collision point directly into screenMeshRef's local space
-      const localHit = screenMeshRef.worldToLocal(hitPointWorld.clone());
+      const btnGeo = new THREE.PlaneGeometry(screenW * 0.44, screenH * 0.22);
+      app3DButtonMeshes = [];
 
-      // Convert local coordinates (X: [-w/2 .. +w/2], Y: [-h/2 .. +h/2]) to canvas pixels (0..512, 0..1024)
-      const px = ((localHit.x / screenW) + 0.5) * 512;
-      const py = (0.5 - (localHit.y / screenH)) * 1024;
+      appDefs.forEach(def => {
+        const tex = create3DTileTexture(def);
+        const mat = new THREE.MeshBasicMaterial({
+          map: tex,
+          side: THREE.DoubleSide,
+          transparent: true
+        });
+        const mesh = new THREE.Mesh(btnGeo, mat);
 
-      if (currentScreenState === 'HOMEPAGE') {
-        const apps = [
-          { key: 'DISPLAY' }, { key: 'CHIPSET' },
-          { key: 'CAMERA'  }, { key: 'BATTERY' },
-          { key: 'NETWORK' }, { key: 'MEMORY'  }
-        ];
+        const localX = def.col * screenW * 0.23;
+        const localY = def.row * screenH * 0.20;
+        const localZ = 0.003; // Slightly in front of screen background
 
-        const colW = 200, rowH = 190;
-        const startX = 36, startY = 180;
+        mesh.position.set(localX, localY, localZ);
+        mesh.userData = { appKey: def.key, baseZ: localZ };
 
-        // Check if tap fell inside any of the 6 exact App Icon Card boxes
-        for (let idx = 0; idx < apps.length; idx++) {
-          const col = idx % 2;
-          const row = Math.floor(idx / 2);
-          const x = startX + col * (colW + 40);
-          const y = startY + row * rowH;
+        screenMesh.add(mesh);
+        app3DButtonMeshes.push(mesh);
+      });
 
-          if (px >= x && px <= x + colW && py >= y && py <= y + 160) {
-            currentScreenState = 'APP_VIEW';
-            activeAppKey = apps[idx].key;
-            renderPhoneScreenCanvas();
-            return;
-          }
-        }
-        // Tapping empty wallpaper, header, dock, or status bar DOES NOTHING
-      } else if (currentScreenState === 'APP_VIEW') {
-        // Unity 3D Canvas Style Home Button & Bottom Bar Hit Boundaries
-        const isHomeBtn = (px >= 70 && px <= 442 && py >= 40 && py <= 130);
-        const isBottomBar = (py >= 850);
+      // ── Create 3D Home Button Mesh ──
+      const homeGeo = new THREE.PlaneGeometry(screenW * 0.85, screenH * 0.12);
+      const homeTex = create3DHomeButtonTexture();
+      const homeMat = new THREE.MeshBasicMaterial({
+        map: homeTex,
+        side: THREE.DoubleSide,
+        transparent: true
+      });
 
-        if (isHomeBtn || isBottomBar) {
-          currentScreenState = 'HOMEPAGE';
-          activeAppKey = null;
-          renderPhoneScreenCanvas();
-        }
+      home3DButtonMesh = new THREE.Mesh(homeGeo, homeMat);
+      home3DButtonMesh.position.set(0, screenH * 0.38, 0.005);
+      home3DButtonMesh.visible = false; // Hidden on homepage
+      screenMesh.add(home3DButtonMesh);
+    }
+
+    // ── Switch Screen Views ──
+    function openAppView(appKey) {
+      currentScreenState = 'APP_VIEW';
+      activeAppKey = appKey;
+
+      // Hide 6 App 3D Buttons, Show Home 3D Button
+      app3DButtonMeshes.forEach(m => m.visible = false);
+      if (home3DButtonMesh) home3DButtonMesh.visible = true;
+
+      // Change Screen Background to App Specs View
+      const specTex = createScreenAppViewTexture(appKey);
+      if (specTex && bgScreenMesh) {
+        bgScreenMesh.material.map = specTex;
+        bgScreenMesh.material.needsUpdate = true;
       }
     }
 
+    function openHomepage() {
+      currentScreenState = 'HOMEPAGE';
+      activeAppKey = null;
+
+      // Show 6 App 3D Buttons, Hide Home 3D Button
+      app3DButtonMeshes.forEach(m => m.visible = true);
+      if (home3DButtonMesh) home3DButtonMesh.visible = false;
+
+      // Restore OLED Wallpaper Background
+      const homeTex = createOLEDWallpaperTexture();
+      if (homeTex && bgScreenMesh) {
+        bgScreenMesh.material.map = homeTex;
+        bgScreenMesh.material.needsUpdate = true;
+      }
+    }
+
+    // Tactile 3D Physical Button Press Animation
+    function animateButtonPress(mesh, callback) {
+      const baseZ = mesh.userData.baseZ || mesh.position.z;
+      const targetZ = baseZ - 0.004;
+
+      // Depress inward
+      let start = performance.now();
+      function step1(now) {
+        const t = Math.min((now - start) / 100, 1);
+        mesh.position.z = THREE.MathUtils.lerp(baseZ, targetZ, t);
+        if (t < 1) {
+          requestAnimationFrame(step1);
+        } else {
+          // Spring back up
+          let start2 = performance.now();
+          function step2(now2) {
+            const t2 = Math.min((now2 - start2) / 120, 1);
+            mesh.position.z = THREE.MathUtils.lerp(targetZ, baseZ, t2);
+            if (t2 < 1) requestAnimationFrame(step2);
+            else if (callback) callback();
+          }
+          requestAnimationFrame(step2);
+        }
+      }
+      requestAnimationFrame(step1);
+    }
+
+    // ── Direct 3D Mesh Button Raycasting ──
     const raycaster = new THREE.Raycaster();
     const pointer   = new THREE.Vector2();
 
@@ -552,10 +598,25 @@
       pointer.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(pointer, camera);
-      const intersects = raycaster.intersectObject(screenMeshRef, true);
 
-      if (intersects.length > 0) {
-        processLocal3DHit(intersects[0].point);
+      if (currentScreenState === 'HOMEPAGE') {
+        // Raycast directly against the Array of 6 3D App Button Meshes!
+        const intersects = raycaster.intersectObjects(app3DButtonMeshes, true);
+        if (intersects.length > 0) {
+          const hitMesh = intersects[0].object;
+          const appKey = hitMesh.userData?.appKey;
+          if (appKey) {
+            animateButtonPress(hitMesh, () => openAppView(appKey));
+          }
+        }
+      } else if (currentScreenState === 'APP_VIEW') {
+        // Raycast directly against the 3D Home Button Mesh!
+        if (home3DButtonMesh) {
+          const intersects = raycaster.intersectObject(home3DButtonMesh, true);
+          if (intersects.length > 0) {
+            animateButtonPress(home3DButtonMesh, () => openHomepage());
+          }
+        }
       }
     }
 
@@ -592,32 +653,28 @@
       screenW = widthDim.size * 0.92;
       screenH = heightDim.size * 0.92;
 
-      const screenCanvasEl = renderPhoneScreenCanvas();
-      screenTextureRef = new THREE.CanvasTexture(screenCanvasEl);
-      screenTextureRef.colorSpace = THREE.SRGBColorSpace;
+      // Create OLED Background Screen Mesh
+      const bgTex = createOLEDWallpaperTexture();
+      const bgMat = new THREE.MeshBasicMaterial({ map: bgTex, side: THREE.DoubleSide, transparent: true });
+      const bgGeo = new THREE.PlaneGeometry(screenW, screenH);
+      bgScreenMesh = new THREE.Mesh(bgGeo, bgMat);
 
-      const screenMat = new THREE.MeshBasicMaterial({
-        map: screenTextureRef,
-        side: THREE.DoubleSide,
-        transparent: true
-      });
-
-      const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
-      const screenMesh = new THREE.Mesh(screenGeo, screenMat);
-
-      // Align 3D Screen Mesh flush against front display face of 3D phone model
+      // Align flush against front display face of 3D phone model
       if (depthDim.axis === 'z') {
-        screenMesh.position.set(ctr.x, ctr.y, ctr.z + depthDim.size * 0.51);
+        bgScreenMesh.position.set(ctr.x, ctr.y, ctr.z + depthDim.size * 0.51);
       } else if (depthDim.axis === 'y') {
-        screenMesh.rotation.x = -Math.PI / 2;
-        screenMesh.position.set(ctr.x, ctr.y + depthDim.size * 0.51, ctr.z);
+        bgScreenMesh.rotation.x = -Math.PI / 2;
+        bgScreenMesh.position.set(ctr.x, ctr.y + depthDim.size * 0.51, ctr.z);
       } else if (depthDim.axis === 'x') {
-        screenMesh.rotation.y = Math.PI / 2;
-        screenMesh.position.set(ctr.x + depthDim.size * 0.51, ctr.y, ctr.z);
+        bgScreenMesh.rotation.y = Math.PI / 2;
+        bgScreenMesh.position.set(ctr.x + depthDim.size * 0.51, ctr.y, ctr.z);
       }
 
-      carRoot.add(screenMesh);
-      screenMeshRef = screenMesh;
+      carRoot.add(bgScreenMesh);
+      screenMeshRef = bgScreenMesh;
+
+      // Build 6 Discrete 3D Interactive Mesh Buttons & 1 3D Home Button Mesh
+      build3DButtons(bgScreenMesh);
 
       carRoot.visible = false;
       scene.add(carRoot);
@@ -772,9 +829,16 @@
             placeCar(pos);
           } else if (placed && screenMeshRef) {
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            const intersects = raycaster.intersectObject(screenMeshRef, true);
-            if (intersects.length > 0) {
-              processLocal3DHit(intersects[0].point);
+            if (currentScreenState === 'HOMEPAGE') {
+              const intersects = raycaster.intersectObjects(app3DButtonMeshes, true);
+              if (intersects.length > 0 && intersects[0].object.userData?.appKey) {
+                openAppView(intersects[0].object.userData.appKey);
+              }
+            } else if (currentScreenState === 'APP_VIEW' && home3DButtonMesh) {
+              const intersects = raycaster.intersectObject(home3DButtonMesh, true);
+              if (intersects.length > 0) {
+                openHomepage();
+              }
             }
           }
         });
