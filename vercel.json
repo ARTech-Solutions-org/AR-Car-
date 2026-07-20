@@ -1,5 +1,11 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/ar", "destination": "/ar/index.html" },
+    { "source": "/ar/", "destination": "/ar/index.html" },
+    { "source": "/photobooth", "destination": "/photobooth/index.html" },
+    { "source": "/photobooth/", "destination": "/photobooth/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
