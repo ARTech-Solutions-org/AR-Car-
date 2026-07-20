@@ -231,7 +231,7 @@
       wctx.beginPath(); wctx.roundRect(14, screenTexH - 80, screenTexW - 28, 44, 16); wctx.fill();
       wctx.strokeStyle = 'rgba(255,255,255,0.22)'; wctx.stroke();
       ['📞','💬','🌐','⚙️'].forEach((ic,i) => {
-        wctx.font = '18px sans-serif'; wctx.textAlign = 'center'; wctx.fillText(ic, 38 + i * ((screenTexW - 76) / 3), screenTexH - 52);
+        wctx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; wctx.textAlign = 'center'; wctx.fillText(ic, 38 + i * ((screenTexW - 76) / 3), screenTexH - 52);
       });
       wctx.fillStyle = '#fff';
       wctx.beginPath(); wctx.roundRect(screenTexW / 2 - 30, screenTexH - 18, 60, 3, 2); wctx.fill();
@@ -257,7 +257,7 @@
         tg.addColorStop(0, c2[0]); tg.addColorStop(1, c2[1]);
         actx.fillStyle = tg;
         actx.beginPath(); actx.roundRect(22, 42, 36, 36, 8); actx.fill();
-        actx.font = '18px sans-serif'; actx.textAlign = 'center'; actx.fillText(app.icon, 40, 66);
+        actx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; actx.textAlign = 'center'; actx.fillText(app.icon, 40, 66);
 
         actx.textAlign = 'left';
         actx.fillStyle = '#00f0ff'; actx.font = '700 8px Outfit,sans-serif'; actx.fillText(app.category, 66, 50);
@@ -298,7 +298,7 @@
       hbctx.strokeStyle = '#00f0ff'; hbctx.lineWidth = 6; hbctx.stroke();
 
       hbctx.shadowColor = '#00f0ff'; hbctx.shadowBlur = 12;
-      hbctx.fillStyle = '#ffffff'; hbctx.font = `bold ${Math.round(homeBtnH * 0.25)}px Outfit, sans-serif`;
+      hbctx.fillStyle = '#ffffff'; hbctx.font = `bold ${Math.round(homeBtnH * 0.25)}px Outfit, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
       hbctx.textAlign = 'center'; hbctx.textBaseline = 'middle';
       hbctx.fillText('🏠  RETURN TO HOME', homeBtnW / 2, homeBtnH / 2);
       texHomeBtn = makeTexture(hbc);
@@ -334,7 +334,7 @@
         ig.addColorStop(0, c2[0]); ig.addColorStop(1, c2[1]);
         atctx.fillStyle = ig;
         atctx.beginPath(); atctx.roundRect(cx+16, cy+16, iconSize, iconSize, 12); atctx.fill();
-        atctx.font = '22px sans-serif'; atctx.textAlign = 'center';
+        atctx.font = '22px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; atctx.textAlign = 'center';
         atctx.fillText(app.icon, cx+16+iconSize/2, cy+16+iconSize*0.68);
 
         // Title & info
@@ -533,11 +533,11 @@
       screenW = dims[1].size * 0.92;
       screenH = dims[2].size * 0.92;
 
-      // Pre-render all GPU textures
-      prerenderTextures();
-
-      // Build all screen meshes
-      buildScreenMeshes(ctr, depthDim);
+      // Pre-render and build screen meshes after fonts are fully loaded by the browser
+      document.fonts.ready.then(() => {
+        prerenderTextures();
+        buildScreenMeshes(ctr, depthDim);
+      });
 
       carRoot.visible = false;
       scene.add(carRoot);
