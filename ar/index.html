@@ -141,6 +141,9 @@
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
     scene.add(camera);
 
+    const controller = renderer.xr.getController(0);
+    scene.add(controller);
+
     scene.add(new THREE.AmbientLight(0xffffff, 1.2));
     const sun = new THREE.DirectionalLight(0xffffff, 2.5);
     sun.position.set(4, 10, 6); scene.add(sun);
@@ -451,6 +454,7 @@
     let _lastClickTime = 0;
 
     function checkScreenClick(clientX, clientY) {
+      if (renderer.xr.isPresenting) return;
       if (!placed || !bgScreenMesh) return;
       const now = Date.now();
       if (now - _lastClickTime < 450) return; // block double-fire
@@ -605,7 +609,11 @@
             reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
             placeCar(pos);
           } else if (placed) {
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const tempMatrix = new THREE.Matrix4();
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
             if (currentScreenState === 'HOMEPAGE') {
               const hits = raycaster.intersectObjects(appHitboxes, false);
               if (hits.length > 0 && hits[0].object.userData?.appKey) openAppView(hits[0].object.userData.appKey);
