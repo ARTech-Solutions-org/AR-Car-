@@ -379,10 +379,11 @@
 
       // ── Atlas Overlay Mesh — all 6 app tiles, 1 draw call ──
       // Positioned in lower 72% of screen (below header), centered
+      const atlasY = -screenH * 0.01; // Moved up from -screenH * 0.06 to avoid dock overlap
       const atlasGeo = new THREE.PlaneGeometry(screenW * 0.88, screenH * 0.60);
       const atlasMat = new THREE.MeshBasicMaterial({ map: texAtlas, side: THREE.DoubleSide, transparent: true });
       atlasMesh = new THREE.Mesh(atlasGeo, atlasMat);
-      atlasMesh.position.set(0, -screenH * 0.06, Z);
+      atlasMesh.position.set(0, atlasY, Z);
       bgScreenMesh.add(atlasMesh);
 
       // ── 6 INVISIBLE Hitbox Planes (0 draw calls — pure raycast targets) ──
@@ -396,7 +397,7 @@
       for (const row of ROWS) {
         for (const col of COLS) {
           const hb = new THREE.Mesh(new THREE.PlaneGeometry(hbW, hbH), invisMat);
-          hb.position.set(col * colStep, -screenH * 0.06 + row * rowStep, Z + 0.002);
+          hb.position.set(col * colStep, atlasY + row * rowStep, Z + 0.002);
           hb.userData = { appKey: APPS[ai].key, active: true }; // active=true on HOMEPAGE
           bgScreenMesh.add(hb);
           appHitboxes.push(hb);
