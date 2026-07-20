@@ -6,7 +6,7 @@
  *   node scripts/compress-glb-models.js
  *   npm run compress-models
  */
-const { execFileSync } = require('child_process');
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,16 +18,12 @@ if (!files.length) {
   process.exit(0);
 }
 
-// Check if @gltf-transform/cli is available locally or via npx
-const localCli = path.join(root, 'node_modules', '@gltf-transform', 'cli', 'bin', 'cli.js');
-const hasLocalCli = fs.existsSync(localCli);
-
 console.log(`📦 Found ${files.length} GLB model(s) in root directory: ${files.join(', ')}`);
 
-for (const file of files) {
-  // Skip already backed up files or large basic backups
-  if (file.includes('uncompressed') || file.includes('basic')) continue;
+// Only target key active models: mobile.glb and mg7.glb
+const targetFiles = files.filter(f => f === 'mobile.glb' || f === 'mg7.glb');
 
+for (const file of targetFiles) {
   const inputPath = path.join(root, file);
   const tmpPath   = path.join(root, `${file}.draco.tmp`);
   const bakPath   = path.join(root, `${file}.bak`);
@@ -36,12 +32,8 @@ for (const file of files) {
   console.log(`\n🚀 Compressing ${file} (${originalSizeMb} MB)...`);
 
   try {
-    if (hasLocalCli) {
-      execFileSync(process.execPath, [localCli, 'draco', inputPath, tmpPath, '--decode-speed', '10'], { stdio: 'inherit' });
-    } else {
-      console.log('⚡ Running npx @gltf-transform/cli draco...');
-      execFileSync('npx.cmd', ['@gltf-transform/cli', 'draco', inputPath, tmpPath, '--decode-speed', '10'], { stdio: 'inherit' });
-    }
+    const cmd = `npx @gltf-transform/cli draco "${inputPath}" "${tmpPath}" --decode-speed 10`;
+    execSync(cmd, { stdio: 'inherit', cwd: root });
 
     if (fs.existsSync(tmpPath)) {
       const compressedSizeMb = (fs.statSync(tmpPath).size / (1024 * 1024)).toFixed(2);

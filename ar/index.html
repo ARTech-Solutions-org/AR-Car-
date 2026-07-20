@@ -413,25 +413,25 @@
       if (!data) return;
 
       // 1. Navigation Buttons (Prominent Back & Home Buttons)
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-      ctx.beginPath(); ctx.roundRect(32, 62, 130, 48, 24); ctx.fill();
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.beginPath(); ctx.roundRect(32, 60, 140, 52, 26); ctx.fill();
       ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.lineWidth = 1.8; ctx.stroke();
 
       ctx.fillStyle = '#00f0ff';
-      ctx.font = 'bold 20px Outfit, sans-serif';
+      ctx.font = 'bold 22px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('‹ BACK', 97, 93);
+      ctx.fillText('‹ BACK', 102, 94);
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
-      ctx.beginPath(); ctx.roundRect(350, 62, 130, 48, 24); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.stroke();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath(); ctx.roundRect(340, 60, 140, 52, 26); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 1.8; ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '600 18px Outfit, sans-serif';
+      ctx.font = 'bold 20px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🏠 HOME', 415, 93);
+      ctx.fillText('🏠 HOME', 410, 94);
 
       // 2. App Hero Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
@@ -490,9 +490,9 @@
       });
 
       // 4. Bottom Close Bar Banner
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.18)';
       ctx.beginPath(); ctx.roundRect(32, 876, 448, 76, 38); ctx.fill();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.strokeStyle = '#00f0ff';
       ctx.lineWidth = 1.5; ctx.stroke();
 
       ctx.fillStyle = '#00f0ff';
@@ -501,32 +501,26 @@
       ctx.fillText('‹ TAP ANYWHERE TO CLOSE APP ›', 256, 922);
     }
 
-    // ── 3D Screen App Raycasting ──────────────────────────────────────────────
+    // ── Instant 3D Screen App Raycasting ─────────────────────────────────────
     function handleScreenRaycast(uv) {
       const px = uv.x * 512;
       const py = (1 - uv.y) * 1024; // Canvas Y is inverted relative to UV Y
 
       if (currentScreenState === 'HOMEPAGE') {
         const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
-        const startX = 36, colW = 200, colGap = 40;
-        const startY = 180, cardH = 160, rowH = 190;
+        
+        // 100% Full Canvas Grid Zones (Zero dead pixels!)
+        const col = (px < 256) ? 0 : 1;
+        const row = (py < 360) ? 0 : (py < 620) ? 1 : 2;
+        const idx = row * 2 + col;
 
-        for (let idx = 0; idx < appKeys.length; idx++) {
-          const col = idx % 2;
-          const row = Math.floor(idx / 2);
-          const x = startX + col * (colW + colGap);
-          const y = startY + row * rowH;
-
-          if (px >= x && px <= x + colW && py >= y && py <= y + cardH) {
-            currentScreenState = 'APP_VIEW';
-            activeAppKey = appKeys[idx];
-            renderPhoneScreenCanvas();
-            return;
-          }
+        if (idx >= 0 && idx < appKeys.length) {
+          currentScreenState = 'APP_VIEW';
+          activeAppKey = appKeys[idx];
+          renderPhoneScreenCanvas();
         }
       } else if (currentScreenState === 'APP_VIEW') {
-        // In APP_VIEW mode, tapping ANYWHERE on the 3D phone display screen (Back button, Home button, or body)
-        // returns cleanly to HOMEPAGE!
+        // In APP_VIEW mode, tapping ANYWHERE on the 3D phone screen closes the app and returns to HOMEPAGE!
         currentScreenState = 'HOMEPAGE';
         activeAppKey = null;
         renderPhoneScreenCanvas();
@@ -550,26 +544,6 @@
         handleScreenRaycast(uv);
       }
     }
-
-    // Multi-device Pointer & Touch Event Handling
-    function onPointerEvent(e) {
-      if (e.target.closest('#sov') || e.target.closest('#startBtn')) return;
-
-      let clientX = e.clientX;
-      let clientY = e.clientY;
-
-      if (e.changedTouches && e.changedTouches.length > 0) {
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-      }
-
-      if (clientX !== undefined && clientY !== undefined) {
-        checkScreenClick(clientX, clientY);
-      }
-    }
-
-    window.addEventListener('click', onPointerEvent);
-    window.addEventListener('touchend', onPointerEvent, { passive: true });
 
     // ── Load model ───────────────────────────────────────────────────────────
     const loader = new GLTFLoader();
@@ -615,12 +589,15 @@
       scene.add(carRoot);
     }, undefined, (e) => showToast('Load error: ' + e.message));
 
-    // ── Gesture state ─────────────────────────────────────────────────────────
+    // ── Touch / Pointer & Drag State ──────────────────────────────────────────
     let dragActive       = false;
     let lastDragX        = 0;
     let pinchActive      = false;
     let lastPinchDist    = 0;
     let lastPinchScale   = 1.0;
+
+    let touchStartX      = 0;
+    let touchStartY      = 0;
 
     function getPinchDist(e) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -632,13 +609,16 @@
       document.addEventListener('touchstart', onTStart, { passive: true });
       document.addEventListener('touchmove',  onTMove,  { passive: true });
       document.addEventListener('touchend',   onTEnd,   { passive: true });
+      document.addEventListener('click',      onMouseClick);
     }
 
     function onTStart(e) {
       if (!placed || !carRoot) return;
       if (e.touches.length === 1) {
-        dragActive = true;
-        lastDragX  = e.touches[0].clientX;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        lastDragX   = touchStartX;
+        dragActive  = false; // Only become active if finger moves > 8px
       } else if (e.touches.length === 2) {
         dragActive    = false;
         pinchActive   = true;
@@ -649,11 +629,17 @@
 
     function onTMove(e) {
       if (!placed || !carRoot) return;
-      if (dragActive && e.touches.length === 1) {
+      if (e.touches.length === 1) {
         const dx = e.touches[0].clientX - lastDragX;
-        lastDragX = e.touches[0].clientX;
-        carYaw += dx * 0.008;
-        carRoot.rotation.y = carYaw;
+        const totalDist = Math.hypot(e.touches[0].clientX - touchStartX, e.touches[0].clientY - touchStartY);
+
+        // Only rotate if finger moved more than 8 pixels (drag, not tap!)
+        if (totalDist > 8) {
+          dragActive = true;
+          lastDragX = e.touches[0].clientX;
+          carYaw += dx * 0.008;
+          carRoot.rotation.y = carYaw;
+        }
       } else if (pinchActive && e.touches.length === 2) {
         const dist   = getPinchDist(e);
         const factor = dist / lastPinchDist;
@@ -664,6 +650,16 @@
     }
 
     function onTEnd(e) {
+      if (e.changedTouches && e.changedTouches.length === 1) {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const totalDist = Math.hypot(endX - touchStartX, endY - touchStartY);
+
+        // If total finger movement was under 10px, execute an INSTANT TAP!
+        if (totalDist <= 10) {
+          checkScreenClick(endX, endY);
+        }
+      }
       if (e.touches.length === 0) {
         pinchActive = false;
         dragActive  = false;
@@ -671,6 +667,11 @@
         pinchActive = false;
         lastPinchDist = 0;
       }
+    }
+
+    function onMouseClick(e) {
+      if (e.target.closest('#sov') || e.target.closest('#startBtn')) return;
+      checkScreenClick(e.clientX, e.clientY);
     }
 
     // ── Common placement helper ───────────────────────────────────────────────
@@ -737,6 +738,13 @@
             const pos = new THREE.Vector3();
             reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
             placeCar(pos);
+          } else if (placed && screenMeshRef) {
+            // WebXR Instant Tap Raycast against 3D phone screen
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObject(screenMeshRef);
+            if (intersects.length > 0) {
+              handleScreenRaycast(intersects[0].uv);
+            }
           }
         });
 
