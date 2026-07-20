@@ -230,6 +230,7 @@
       wctx.fillStyle = 'rgba(255,255,255,0.13)';
       wctx.beginPath(); wctx.roundRect(14, screenTexH - 80, screenTexW - 28, 44, 16); wctx.fill();
       wctx.strokeStyle = 'rgba(255,255,255,0.22)'; wctx.stroke();
+      wctx.fillStyle = '#ffffff';
       ['📞','💬','🌐','⚙️'].forEach((ic,i) => {
         wctx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; wctx.textAlign = 'center'; wctx.fillText(ic, 38 + i * ((screenTexW - 76) / 3), screenTexH - 52);
       });
@@ -257,6 +258,7 @@
         tg.addColorStop(0, c2[0]); tg.addColorStop(1, c2[1]);
         actx.fillStyle = tg;
         actx.beginPath(); actx.roundRect(22, 42, 36, 36, 8); actx.fill();
+        actx.fillStyle = '#ffffff';
         actx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; actx.textAlign = 'center'; actx.fillText(app.icon, 40, 66);
 
         actx.textAlign = 'left';
@@ -334,6 +336,7 @@
         ig.addColorStop(0, c2[0]); ig.addColorStop(1, c2[1]);
         atctx.fillStyle = ig;
         atctx.beginPath(); atctx.roundRect(cx+16, cy+16, iconSize, iconSize, 12); atctx.fill();
+        atctx.fillStyle = '#ffffff';
         atctx.font = '22px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'; atctx.textAlign = 'center';
         atctx.fillText(app.icon, cx+16+iconSize/2, cy+16+iconSize*0.68);
 
