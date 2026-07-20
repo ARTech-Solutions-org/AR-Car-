@@ -9,21 +9,59 @@ const fs    = require('fs');
 const path  = require('path');
 const os    = require('os');
 
-const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
 
-// Load config to read API key server-side
-let CONFIG = {};
+// Load .env file natively if present
+function loadEnv() {
+  const envPath = path.join(ROOT, '.env');
+  if (fs.existsSync(envPath)) {
+    try {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      envContent.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIdx = trimmed.indexOf('=');
+          if (eqIdx > 0) {
+            const key = trimmed.slice(0, eqIdx).trim();
+            const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+            if (!process.env[key]) {
+              process.env[key] = val;
+            }
+          }
+        }
+      });
+    } catch(e) {
+      console.warn('Could not load .env file:', e.message);
+    }
+  }
+}
+loadEnv();
+
+const PORT = process.env.PORT || 8080;
+
+// Load config: prioritize process.env (.env), with fallback to config.js parsing
+let CONFIG = {
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  IMAGE_MODEL:    process.env.IMAGE_MODEL || 'imagen-4.0-fast-generate-001',
+  AR_URL:         process.env.AR_URL || '',
+};
+
 try {
   const cfgRaw = fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8');
-  const match = cfgRaw.match(/GEMINI_API_KEY\s*:\s*["']([^"']+)["']/);
-  if (match) CONFIG.GEMINI_API_KEY = match[1];
-  const arMatch = cfgRaw.match(/AR_URL\s*:\s*["']([^"']+)["']/);
-  if (arMatch) CONFIG.AR_URL = arMatch[1];
-  const imageMatch = cfgRaw.match(/IMAGE_MODEL\s*:\s*["']([^"']+)["']/);
-  if (imageMatch) CONFIG.IMAGE_MODEL = imageMatch[1];
+  if (!CONFIG.GEMINI_API_KEY) {
+    const match = cfgRaw.match(/GEMINI_API_KEY\s*:\s*["']([^"']+)["']/);
+    if (match) CONFIG.GEMINI_API_KEY = match[1];
+  }
+  if (!CONFIG.AR_URL) {
+    const arMatch = cfgRaw.match(/AR_URL\s*:\s*["']([^"']+)["']/);
+    if (arMatch) CONFIG.AR_URL = arMatch[1];
+  }
+  if (!CONFIG.IMAGE_MODEL) {
+    const imageMatch = cfgRaw.match(/IMAGE_MODEL\s*:\s*["']([^"']+)["']/);
+    if (imageMatch) CONFIG.IMAGE_MODEL = imageMatch[1];
+  }
 } catch(e) {
-  console.warn('Could not parse config.js:', e.message);
+  console.warn('Could not parse config.js fallback:', e.message);
 }
 
 // MIME types

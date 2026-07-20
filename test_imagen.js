@@ -1,9 +1,17 @@
 const https = require('https');
 const fs = require('fs');
 
-const cfgRaw = fs.readFileSync('config.js', 'utf8');
-const match = cfgRaw.match(/GEMINI_API_KEY\s*:\s*["']([^"']+)["']/);
-const API_KEY = match ? match[1] : '';
+let API_KEY = process.env.GEMINI_API_KEY || '';
+if (!API_KEY && fs.existsSync('.env')) {
+  const envRaw = fs.readFileSync('.env', 'utf8');
+  const envMatch = envRaw.match(/GEMINI_API_KEY\s*=\s*(.+)/);
+  if (envMatch) API_KEY = envMatch[1].trim().replace(/^["']|["']$/g, '');
+}
+if (!API_KEY && fs.existsSync('config.js')) {
+  const cfgRaw = fs.readFileSync('config.js', 'utf8');
+  const match = cfgRaw.match(/GEMINI_API_KEY\s*:\s*["']([^"']+)["']/);
+  if (match) API_KEY = match[1];
+}
 
 const realImageBase64 = fs.readFileSync('mg(7).png', 'base64');
 const payload = JSON.stringify({
