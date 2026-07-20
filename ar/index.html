@@ -79,79 +79,6 @@
     #hint-bar.visible { display: flex; }
     #hint-bar span { display: flex; align-items: center; gap: 5px; }
 
-    /* ── App Detail Sheet Modal ── */
-    #app-modal {
-      position: fixed; inset: 0; z-index: 150;
-      display: flex; align-items: flex-end; justify-content: center;
-      background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(12px);
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    #app-modal.active {
-      opacity: 1; pointer-events: all;
-    }
-
-    .modal-card {
-      width: min(420px, 92vw);
-      background: rgba(18, 20, 32, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-bottom: none;
-      border-radius: 28px 28px 0 0;
-      padding: 24px;
-      color: #fff;
-      transform: translateY(100%);
-      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 240, 255, 0.15);
-    }
-    #app-modal.active .modal-card {
-      transform: translateY(0);
-    }
-
-    .modal-header {
-      display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
-    }
-    .modal-tile {
-      width: 52px; height: 52px; border-radius: 16px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.8rem;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4); flex-shrink: 0;
-    }
-    .modal-tile.blue   { background: linear-gradient(135deg, #007aff, #00c6ff); }
-    .modal-tile.purple { background: linear-gradient(135deg, #af52de, #7928ca); }
-    .modal-tile.red    { background: linear-gradient(135deg, #ff3b30, #ff9500); }
-    .modal-tile.green  { background: linear-gradient(135deg, #34c759, #30d158); }
-    .modal-tile.cyan   { background: linear-gradient(135deg, #5ac8fa, #007aff); }
-    .modal-tile.gold   { background: linear-gradient(135deg, #ffcc00, #ff9500); }
-
-    .modal-title-wrap { flex: 1; }
-    .modal-category {
-      font-size: 0.7rem; color: #00f0ff; text-transform: uppercase;
-      letter-spacing: 0.1em; font-weight: 700;
-    }
-    .modal-name {
-      font-size: 1.3rem; font-weight: 700; line-height: 1.2; margin-top: 2px;
-    }
-    .modal-close-btn {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff; font-size: 1.1rem; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.2s;
-    }
-    .modal-close-btn:active { background: rgba(255,255,255,0.3); }
-
-    .spec-grid {
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .spec-row {
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 12px 16px; border-radius: 14px;
-    }
-    .spec-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
-    .spec-val { font-size: 0.9rem; font-weight: 700; color: #fff; }
-
     #toast {
       position: fixed; bottom: 24px; left: 50%;
       transform: translateX(-50%);
@@ -185,26 +112,6 @@
     <span>🤏 Pinch to resize</span>
   </div>
 
-  <!-- App Detail Sheet Modal -->
-  <div id="app-modal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-tile" id="m-tile">📱</div>
-        <div class="modal-title-wrap">
-          <div class="modal-category" id="m-category">DISPLAY SPECIFICATIONS</div>
-          <div class="modal-name" id="m-name">6.7" Super Retina OLED</div>
-        </div>
-        <button class="modal-close-btn" id="m-close">✕</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="spec-grid" id="m-specs">
-          <!-- Populated dynamically -->
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div id="toast"></div>
 
   <script type="importmap">
@@ -228,9 +135,8 @@
     const topLogo  = document.getElementById('top-logo');
     const hintBar  = document.getElementById('hint-bar');
     const toast    = document.getElementById('toast');
-    const appModal = document.getElementById('app-modal');
 
-    // ── App Details Database ──────────────────────────────────────────────────
+    // ── App Details Specs Database ────────────────────────────────────────────
     const APP_SPECS_DB = {
       DISPLAY: {
         category: 'DISPLAY TECHNOLOGY',
@@ -238,11 +144,11 @@
         tileClass: 'blue',
         icon: '📱',
         specs: [
-          { label: 'Screen Technology', val: 'LTPO 4.0 Super Retina AMOLED' },
+          { label: 'Screen Tech', val: 'LTPO 4.0 Super Retina AMOLED' },
           { label: 'Resolution', val: '3200 x 1440 QHD+ (526 ppi)' },
           { label: 'Refresh Rate', val: '1Hz – 120Hz Dynamic Adaptive' },
-          { label: 'Peak Brightness', val: '3000 nits Outdoor Vision' },
-          { label: 'Glass Protection', val: 'Armor Crystal Ceramic Shield' }
+          { label: 'Brightness', val: '3000 nits Outdoor Vision' },
+          { label: 'Protection', val: 'Armor Crystal Shield' }
         ]
       },
       CHIPSET: {
@@ -254,8 +160,8 @@
           { label: 'Architecture', val: '3nm Ultra-Efficiency Process' },
           { label: 'CPU Cores', val: '8-Core (2 Ultra + 6 Efficiency)' },
           { label: 'GPU Engine', val: '12-Core Hardware Ray-Tracing' },
-          { label: 'AI NPU', val: '32-Core Neural Engine (45 TOPS)' },
-          { label: 'Thermal Cooling', val: 'Dual Vapor Chamber System' }
+          { label: 'AI NPU Engine', val: '32-Core Neural Processing' },
+          { label: 'Cooling System', val: 'Dual Vapor Chamber Liquid' }
         ]
       },
       CAMERA: {
@@ -265,10 +171,10 @@
         icon: '📸',
         specs: [
           { label: 'Main Lens', val: '200 MP Ultra-Sensing OIS' },
-          { label: 'Telephoto Lens', val: '50 MP 10x Periscope (100x Digital)' },
+          { label: 'Telephoto Lens', val: '50 MP 10x Periscope (100x Zoom)' },
           { label: 'Ultra-Wide Lens', val: '48 MP 123° FOV Macro System' },
           { label: 'Video Capture', val: '8K HDR Cinema Video @ 60 FPS' },
-          { label: 'AI Night Mode', val: 'Real-Time Night Vision Engine' }
+          { label: 'AI Night Mode', val: 'Real-Time Night Vision AI' }
         ]
       },
       BATTERY: {
@@ -292,7 +198,7 @@
         specs: [
           { label: '5G Modem', val: 'Dual 5G SA/NSA Multi-Gigabit' },
           { label: 'Wi-Fi Speed', val: 'Wi-Fi 7 (802.11be) 6GHz Band' },
-          { label: 'Bluetooth', val: 'Bluetooth 5.4 Ultra-Low Latency' },
+          { label: 'Bluetooth', val: 'Bluetooth 5.4 Low Latency' },
           { label: 'Satellite Link', val: 'Emergency 2-Way Satellite SOS' },
           { label: 'NFC Payments', val: '360° Multi-Angle Tap & Pay' }
         ]
@@ -307,41 +213,10 @@
           { label: 'System RAM', val: '16 GB LPDDR5X Ultra Memory' },
           { label: 'Read Speed', val: 'Up to 4,200 MB/s Sequential' },
           { label: 'Write Speed', val: 'Up to 2,800 MB/s Sequential' },
-          { label: 'Cloud Sync', val: 'Auto-Sync Instant Storage' }
+          { label: 'Cloud Sync', val: 'Auto-Sync Instant Cloud' }
         ]
       }
     };
-
-    function openAppModal(appKey) {
-      const data = APP_SPECS_DB[appKey];
-      if (!data) return;
-
-      document.getElementById('m-category').textContent = data.category;
-      document.getElementById('m-name').textContent     = data.name;
-      const tileEl = document.getElementById('m-tile');
-      tileEl.textContent = data.icon;
-      tileEl.className   = `modal-tile ${data.tileClass}`;
-
-      const specsWrap = document.getElementById('m-specs');
-      specsWrap.innerHTML = '';
-      data.specs.forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'spec-row';
-        row.innerHTML = `<span class="spec-label">${s.label}</span><span class="spec-val">${s.val}</span>`;
-        specsWrap.appendChild(row);
-      });
-
-      appModal.classList.add('active');
-    }
-
-    document.getElementById('m-close').addEventListener('click', () => {
-      appModal.classList.remove('active');
-    });
-    appModal.addEventListener('click', (e) => {
-      if (e.target.id === 'app-modal') {
-        appModal.classList.remove('active');
-      }
-    });
 
     // ── Three.js setup ────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -386,21 +261,32 @@
     }
     const reticle = buildReticle();
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ── State Machine ─────────────────────────────────────────────────────────
     let carRoot   = null;
     let screenMeshRef = null;
     let placed    = false;
-    let carScale  = 1.0;          // base scale after model load
-    let currentScale = 1.0;       // live scale (pinch adjustable)
-    let autoRotate   = false;     // Auto-rotation STOPPED per request
-    let carYaw    = 0;            // current Y rotation of car
+    let carScale  = 1.0;
+    let currentScale = 1.0;
+    let autoRotate   = false; // Stopped
+    let carYaw    = 0;
 
-    // ── Generate Smartphone Screen Texture ────────────────────────────────────
-    function createPhoneScreenCanvas() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 1024;
-      const ctx = canvas.getContext('2d');
+    let currentScreenState = 'HOMEPAGE'; // 'HOMEPAGE' | 'APP_VIEW'
+    let activeAppKey = null;
+    let screenCanvas = null;
+    let screenCtx = null;
+    let screenTextureRef = null;
+
+    // ── 3D Smartphone Display Canvas Renderer ─────────────────────────────────
+    function renderPhoneScreenCanvas() {
+      if (!screenCanvas) {
+        screenCanvas = document.createElement('canvas');
+        screenCanvas.width = 512;
+        screenCanvas.height = 1024;
+        screenCtx = screenCanvas.getContext('2d');
+      }
+
+      const ctx = screenCtx;
+      ctx.clearRect(0, 0, 512, 1024);
 
       // 1. Sleek OLED Gradient Wallpaper
       const grad = ctx.createLinearGradient(0, 0, 512, 1024);
@@ -412,11 +298,11 @@
 
       // Glowing Ambient Mesh Orbs
       ctx.fillStyle = 'rgba(0, 122, 255, 0.18)';
-      ctx.beginPath(); ctx.arc(120, 200, 180, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(120, 180, 180, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(175, 82, 222, 0.18)';
-      ctx.beginPath(); ctx.arc(400, 700, 220, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(400, 750, 220, 0, Math.PI * 2); ctx.fill();
 
-      // 2. Top Status Bar
+      // 2. Top Status Bar (both screens)
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
       ctx.textAlign = 'left';
@@ -426,12 +312,28 @@
       ctx.font = '20px Outfit, sans-serif';
       ctx.fillText('5G  100%', 480, 45);
 
-      // 3. Top Header Card (Product Name)
+      if (currentScreenState === 'HOMEPAGE') {
+        renderHomepageContent(ctx);
+      } else if (currentScreenState === 'APP_VIEW' && activeAppKey) {
+        renderAppViewContent(ctx, activeAppKey);
+      }
+
+      // 3. Home Bar Indicator at bottom
+      ctx.fillStyle = currentScreenState === 'APP_VIEW' ? '#00f0ff' : '#ffffff';
+      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+
+      if (screenTextureRef) {
+        screenTextureRef.needsUpdate = true;
+      }
+      return screenCanvas;
+    }
+
+    function renderHomepageContent(ctx) {
+      // Header Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath(); ctx.roundRect(32, 70, 448, 80, 20); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      ctx.lineWidth = 1.5; ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 26px Outfit, sans-serif';
@@ -441,7 +343,7 @@
       ctx.font = '600 16px Outfit, sans-serif';
       ctx.fillText('⚡ 5G ULTRA POWERED', 56, 134);
 
-      // 4. App Apps Grid (2 columns x 3 rows)
+      // App Icons Grid (2 columns x 3 rows)
       const apps = [
         { icon: '📱', bg1: '#007aff', bg2: '#00c6ff', title: 'DISPLAY', val: '6.7" OLED', detail: '120Hz LTPO' },
         { icon: '⚡', bg1: '#af52de', bg2: '#7928ca', title: 'CHIPSET', val: '3nm Bionic', detail: 'Octa-Core' },
@@ -462,25 +364,21 @@
         const x = startX + col * (colW + 40);
         const y = startY + row * rowH;
 
-        // App Card Container
         ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.beginPath(); ctx.roundRect(x, y, colW, 160, 24); ctx.fill();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         ctx.lineWidth = 1; ctx.stroke();
 
-        // App Icon Squircle
         const tileGrad = ctx.createLinearGradient(x + 16, y + 16, x + 64, y + 64);
         tileGrad.addColorStop(0, app.bg1);
         tileGrad.addColorStop(1, app.bg2);
         ctx.fillStyle = tileGrad;
         ctx.beginPath(); ctx.roundRect(x + 16, y + 16, 52, 52, 14); ctx.fill();
 
-        // App Emoji Icon
         ctx.font = '26px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(app.icon, x + 42, y + 52);
 
-        // App Details Text
         ctx.textAlign = 'left';
         ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
         ctx.font = '600 13px Outfit, sans-serif';
@@ -495,7 +393,7 @@
         ctx.fillText(app.detail, x + 16, y + 142);
       });
 
-      // 5. Bottom App Dock
+      // Bottom App Dock
       ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.beginPath(); ctx.roundRect(32, 860, 448, 90, 32); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -508,34 +406,136 @@
         ctx.textAlign = 'center';
         ctx.fillText(ic, dx, 918);
       });
+    }
 
-      // 6. Home Bar Indicator
+    function renderAppViewContent(ctx, appKey) {
+      const data = APP_SPECS_DB[appKey];
+      if (!data) return;
+
+      // 1. Navigation Buttons (Back & Home at Top)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.beginPath(); ctx.roundRect(32, 65, 120, 44, 22); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.2; ctx.stroke();
+
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = 'bold 20px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('‹ Back', 92, 94);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.beginPath(); ctx.roundRect(360, 65, 120, 44, 22); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.stroke();
+
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+      ctx.font = '600 18px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏠 Home', 420, 94);
 
-      return canvas;
+      // 2. App Hero Card
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath(); ctx.roundRect(32, 130, 448, 110, 24); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = 1.5; ctx.stroke();
+
+      const bgColors = {
+        blue: ['#007aff', '#00c6ff'],
+        purple: ['#af52de', '#7928ca'],
+        red: ['#ff3b30', '#ff9500'],
+        green: ['#34c759', '#30d158'],
+        cyan: ['#5ac8fa', '#007aff'],
+        gold: ['#ffcc00', '#ff9500']
+      };
+      const colors = bgColors[data.tileClass] || ['#007aff', '#00c6ff'];
+      const tileGrad = ctx.createLinearGradient(56, 150, 116, 210);
+      tileGrad.addColorStop(0, colors[0]);
+      tileGrad.addColorStop(1, colors[1]);
+
+      ctx.fillStyle = tileGrad;
+      ctx.beginPath(); ctx.roundRect(52, 152, 64, 64, 18); ctx.fill();
+
+      ctx.font = '32px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(data.icon, 84, 196);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '700 13px Outfit, sans-serif';
+      ctx.fillText(data.category, 134, 175);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.fillText(data.name, 134, 204);
+
+      // 3. Spec Details List
+      const startY = 260;
+      const rowH = 118;
+
+      data.specs.forEach((s, idx) => {
+        const y = startY + idx * rowH;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.beginPath(); ctx.roundRect(32, y, 448, 102, 20); ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1; ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.font = '600 14px Outfit, sans-serif';
+        ctx.fillText(s.label, 54, y + 38);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 21px Outfit, sans-serif';
+        ctx.fillText(s.val, 54, y + 74);
+      });
+
+      // 4. Bottom Close Bar Banner
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+      ctx.beginPath(); ctx.roundRect(32, 880, 448, 70, 35); ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+      ctx.stroke();
+
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = 'bold 20px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Tap Here or Home Bar To Return', 256, 922);
     }
 
     // ── 3D Screen App Raycasting ──────────────────────────────────────────────
-    function getAppKeyFromUV(uv) {
+    function handleScreenRaycast(uv) {
       const px = uv.x * 512;
       const py = (1 - uv.y) * 1024; // Canvas Y is inverted relative to UV Y
 
-      const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
-      const startX = 36, colW = 200, colGap = 40;
-      const startY = 180, cardH = 160, rowH = 190;
+      if (currentScreenState === 'HOMEPAGE') {
+        const appKeys = ['DISPLAY', 'CHIPSET', 'CAMERA', 'BATTERY', 'NETWORK', 'MEMORY'];
+        const startX = 36, colW = 200, colGap = 40;
+        const startY = 180, cardH = 160, rowH = 190;
 
-      for (let idx = 0; idx < appKeys.length; idx++) {
-        const col = idx % 2;
-        const row = Math.floor(idx / 2);
-        const x = startX + col * (colW + colGap);
-        const y = startY + row * rowH;
+        for (let idx = 0; idx < appKeys.length; idx++) {
+          const col = idx % 2;
+          const row = Math.floor(idx / 2);
+          const x = startX + col * (colW + colGap);
+          const y = startY + row * rowH;
 
-        if (px >= x && px <= x + colW && py >= y && py <= y + cardH) {
-          return appKeys[idx];
+          if (px >= x && px <= x + colW && py >= y && py <= y + cardH) {
+            currentScreenState = 'APP_VIEW';
+            activeAppKey = appKeys[idx];
+            renderPhoneScreenCanvas();
+            return;
+          }
+        }
+      } else if (currentScreenState === 'APP_VIEW') {
+        // Tapping Back Button (top left), Home Button (top right), or Home Bar at bottom
+        const isBackTop = (py <= 125);
+        const isHomeBar = (py >= 870);
+
+        if (isBackTop || isHomeBar) {
+          currentScreenState = 'HOMEPAGE';
+          activeAppKey = null;
+          renderPhoneScreenCanvas();
+          return;
         }
       }
-      return null;
     }
 
     const raycaster = new THREE.Raycaster();
@@ -552,15 +552,11 @@
 
       if (intersects.length > 0) {
         const uv = intersects[0].uv;
-        const appKey = getAppKeyFromUV(uv);
-        if (appKey) {
-          openAppModal(appKey);
-        }
+        handleScreenRaycast(uv);
       }
     }
 
     window.addEventListener('click', (e) => {
-      if (appModal.classList.contains('active')) return;
       if (e.target.closest('#sov') || e.target.closest('#startBtn')) return;
       checkScreenClick(e.clientX, e.clientY);
     });
@@ -580,17 +576,17 @@
       box.getSize(sz);
       box.getCenter(ctr);
 
-      // Fit to smartphone scale (1.0m max dimension, half of previous 2.0 scale)
+      // Fit to smartphone scale (1.0m max dimension)
       carScale = 1.0 / Math.max(sz.x, sz.y, sz.z);
       currentScale = carScale;
 
       // Attach 3D Smartphone Screen Canvas Texture directly to the 3D phone model!
-      const screenCanvas = createPhoneScreenCanvas();
-      const screenTexture = new THREE.CanvasTexture(screenCanvas);
-      screenTexture.colorSpace = THREE.SRGBColorSpace;
+      const screenCanvasEl = renderPhoneScreenCanvas();
+      screenTextureRef = new THREE.CanvasTexture(screenCanvasEl);
+      screenTextureRef.colorSpace = THREE.SRGBColorSpace;
 
       const screenMat = new THREE.MeshBasicMaterial({
-        map: screenTexture,
+        map: screenTextureRef,
         side: THREE.DoubleSide,
         transparent: true
       });
