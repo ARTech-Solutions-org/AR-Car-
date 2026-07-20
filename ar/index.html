@@ -328,6 +328,127 @@
     draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     loader.setDRACOLoader(draco);
 
+    // ── Generate Smartphone Screen Texture ────────────────────────────────────
+    function createPhoneScreenCanvas() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Sleek OLED Gradient Wallpaper
+      const grad = ctx.createLinearGradient(0, 0, 512, 1024);
+      grad.addColorStop(0, '#0c0e17');
+      grad.addColorStop(0.5, '#121626');
+      grad.addColorStop(1, '#080910');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 1024);
+
+      // Glowing Ambient Mesh Orbs
+      ctx.fillStyle = 'rgba(0, 122, 255, 0.18)';
+      ctx.beginPath(); ctx.arc(120, 200, 180, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(175, 82, 222, 0.18)';
+      ctx.beginPath(); ctx.arc(400, 700, 220, 0, Math.PI * 2); ctx.fill();
+
+      // 2. Top Status Bar
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px Outfit, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('09:41', 32, 45);
+
+      ctx.textAlign = 'right';
+      ctx.font = '20px Outfit, sans-serif';
+      ctx.fillText('5G  100%', 480, 45);
+
+      // 3. Top Header Card (Product Name)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath(); ctx.roundRect(32, 70, 448, 80, 20); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 26px Outfit, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('FLAGSHIP PHONE', 56, 110);
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '600 16px Outfit, sans-serif';
+      ctx.fillText('⚡ 5G ULTRA POWERED', 56, 134);
+
+      // 4. App Apps Grid (2 columns x 3 rows)
+      const apps = [
+        { icon: '📱', bg1: '#007aff', bg2: '#00c6ff', title: 'DISPLAY', val: '6.7" OLED', detail: '120Hz LTPO' },
+        { icon: '⚡', bg1: '#af52de', bg2: '#7928ca', title: 'CHIPSET', val: '3nm Bionic', detail: 'Octa-Core' },
+        { icon: '📸', bg1: '#ff3b30', bg2: '#ff9500', title: 'CAMERA', val: '200 MP', detail: '8K HDR Video' },
+        { icon: '🔋', bg1: '#34c759', bg2: '#30d158', title: 'BATTERY', val: '5000 mAh', detail: '100W Fast' },
+        { icon: '📶', bg1: '#5ac8fa', bg2: '#007aff', title: 'NETWORK', val: 'Ultra 5G', detail: 'Wi-Fi 7' },
+        { icon: '💾', bg1: '#ffcc00', bg2: '#ff9500', title: 'MEMORY', val: '512 GB', detail: '16GB RAM' },
+      ];
+
+      const colW = 200;
+      const rowH = 190;
+      const startX = 36;
+      const startY = 180;
+
+      apps.forEach((app, idx) => {
+        const col = idx % 2;
+        const row = Math.floor(idx / 2);
+        const x = startX + col * (colW + 40);
+        const y = startY + row * rowH;
+
+        // App Card Container
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath(); ctx.roundRect(x, y, colW, 160, 24); ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1; ctx.stroke();
+
+        // App Icon Squircle
+        const tileGrad = ctx.createLinearGradient(x + 16, y + 16, x + 64, y + 64);
+        tileGrad.addColorStop(0, app.bg1);
+        tileGrad.addColorStop(1, app.bg2);
+        ctx.fillStyle = tileGrad;
+        ctx.beginPath(); ctx.roundRect(x + 16, y + 16, 52, 52, 14); ctx.fill();
+
+        // App Emoji Icon
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(app.icon, x + 42, y + 52);
+
+        // App Details Text
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.font = '600 13px Outfit, sans-serif';
+        ctx.fillText(app.title, x + 16, y + 94);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Outfit, sans-serif';
+        ctx.fillText(app.val, x + 16, y + 120);
+
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = '600 13px Outfit, sans-serif';
+        ctx.fillText(app.detail, x + 16, y + 142);
+      });
+
+      // 5. Bottom App Dock
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.beginPath(); ctx.roundRect(32, 860, 448, 90, 32); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.stroke();
+
+      const dockIcons = ['📞', '💬', '🌐', '⚙️'];
+      dockIcons.forEach((ic, i) => {
+        const dx = 80 + i * 110;
+        ctx.font = '36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(ic, dx, 918);
+      });
+
+      // 6. Home Bar Indicator
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(186, 986, 140, 6, 3); ctx.fill();
+
+      return canvas;
+    }
+
     const modelPath = (typeof CONFIG !== 'undefined' && CONFIG.MODEL_PATH) ? CONFIG.MODEL_PATH : '/mg7.glb';
     loader.load(modelPath, (gltf) => {
       carRoot = gltf.scene;
@@ -341,7 +462,27 @@
       carScale = 1.0 / Math.max(sz.x, sz.y, sz.z);
       currentScale = carScale;
 
-      // Position App Icon Badges in a screen grid floating around the mobile phone
+      // Attach 3D Smartphone Screen Canvas Texture directly to the 3D phone model!
+      const screenCanvas = createPhoneScreenCanvas();
+      const screenTexture = new THREE.CanvasTexture(screenCanvas);
+      screenTexture.colorSpace = THREE.SRGBColorSpace;
+
+      const screenMat = new THREE.MeshBasicMaterial({
+        map: screenTexture,
+        side: THREE.DoubleSide,
+        transparent: true
+      });
+
+      const screenW = sz.x * 0.95;
+      const screenH = sz.y * 0.95;
+      const screenGeo = new THREE.PlaneGeometry(screenW, screenH);
+      const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+
+      // Position screen mesh flush against the 3D phone front face
+      screenMesh.position.set(ctr.x, ctr.y, ctr.z + sz.z * 0.51);
+      carRoot.add(screenMesh);
+
+      // Position App Icon Badges floating closely around the mobile screen
       const rx = Math.max(sz.x * 0.55, 0.3);
       const ry = Math.max(sz.y * 0.40, 0.4);
       const rz = Math.max(sz.z * 0.55, 0.1);
@@ -360,7 +501,6 @@
           HOTSPOT_DEFS[i].local.set(ctr.x + off.x, ctr.y + off.y, ctr.z + off.z);
         }
       });
-
 
       carRoot.visible = false;
       scene.add(carRoot);
