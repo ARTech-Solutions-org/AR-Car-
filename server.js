@@ -258,49 +258,63 @@ const server = http.createServer((req, res) => {
   // ── Static file server ──
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/photobooth/index.html';
+  if (urlPath === '/ar' || urlPath === '/ar/') urlPath = '/ar/index.html';
+  if (urlPath === '/photobooth' || urlPath === '/photobooth/') urlPath = '/photobooth/index.html';
 
-  const filePath = path.join(ROOT, urlPath);
-  const ext      = path.extname(filePath).toLowerCase();
-  const mime     = MIME[ext] || 'application/octet-stream';
+  let filePath = path.join(ROOT, urlPath);
 
   if (!filePath.startsWith(ROOT)) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
 
   fs.stat(filePath, (err, stat) => {
-    if (err || !stat.isFile()) {
+    if (err) {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end(`404 — Not found: ${urlPath}`);
       return;
     }
 
-    const cacheControl = ext === '.glb' ? 'public, max-age=3600' : 'no-cache';
-    const range = req.headers.range;
-
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
-      const chunksize = (end - start) + 1;
-      const file = fs.createReadStream(filePath, { start, end });
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': mime,
-        'Cache-Control': cacheControl,
-      });
-      file.pipe(res);
-    } else {
-      res.writeHead(200, {
-        'Content-Length': stat.size,
-        'Content-Type': mime,
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': cacheControl,
-      });
-      fs.createReadStream(filePath).pipe(res);
+    if (stat.isDirectory()) {
+      filePath = path.join(filePath, 'index.html');
     }
+
+    fs.stat(filePath, (err2, stat2) => {
+      if (err2 || !stat2.isFile()) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end(`404 — Not found: ${urlPath}`);
+        return;
+      }
+
+      const ext      = path.extname(filePath).toLowerCase();
+      const mime     = MIME[ext] || 'application/octet-stream';
+      const cacheControl = ext === '.glb' ? 'public, max-age=3600' : 'no-cache';
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : stat2.size - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${stat2.size}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': mime,
+          'Cache-Control': cacheControl,
+        });
+        file.pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': stat2.size,
+          'Content-Type': mime,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': cacheControl,
+        });
+        fs.createReadStream(filePath).pipe(res);
+      }
+    });
   });
 });
 
