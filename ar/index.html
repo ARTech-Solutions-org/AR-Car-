@@ -267,7 +267,7 @@
     let placed    = false;
     let carScale  = 1.0;
     let currentScale = 1.0;
-    let autoRotate   = false; // Stopped
+    let autoRotate   = false;
     let carYaw    = 0;
 
     let currentScreenState = 'HOMEPAGE'; // 'HOMEPAGE' | 'APP_VIEW'
@@ -412,30 +412,30 @@
       const data = APP_SPECS_DB[appKey];
       if (!data) return;
 
-      // 1. Navigation Buttons (Back & Home at Top)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
-      ctx.beginPath(); ctx.roundRect(32, 65, 120, 44, 22); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.lineWidth = 1.2; ctx.stroke();
+      // 1. Navigation Buttons (Prominent Back & Home Buttons)
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.beginPath(); ctx.roundRect(32, 62, 130, 48, 24); ctx.fill();
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 1.5; ctx.stroke();
 
       ctx.fillStyle = '#00f0ff';
       ctx.font = 'bold 20px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('‹ Back', 92, 94);
+      ctx.fillText('‹ BACK', 97, 93);
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
-      ctx.beginPath(); ctx.roundRect(360, 65, 120, 44, 22); ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.beginPath(); ctx.roundRect(350, 62, 130, 48, 24); ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '600 18px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🏠 Home', 420, 94);
+      ctx.fillText('🏠 HOME', 415, 93);
 
       // 2. App Hero Card
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-      ctx.beginPath(); ctx.roundRect(32, 130, 448, 110, 24); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(32, 126, 448, 110, 24); ctx.fill();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
       ctx.lineWidth = 1.5; ctx.stroke();
 
@@ -448,28 +448,28 @@
         gold: ['#ffcc00', '#ff9500']
       };
       const colors = bgColors[data.tileClass] || ['#007aff', '#00c6ff'];
-      const tileGrad = ctx.createLinearGradient(56, 150, 116, 210);
+      const tileGrad = ctx.createLinearGradient(52, 148, 116, 212);
       tileGrad.addColorStop(0, colors[0]);
       tileGrad.addColorStop(1, colors[1]);
 
       ctx.fillStyle = tileGrad;
-      ctx.beginPath(); ctx.roundRect(52, 152, 64, 64, 18); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(52, 148, 64, 64, 18); ctx.fill();
 
       ctx.font = '32px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(data.icon, 84, 196);
+      ctx.fillText(data.icon, 84, 192);
 
       ctx.textAlign = 'left';
       ctx.fillStyle = '#00f0ff';
       ctx.font = '700 13px Outfit, sans-serif';
-      ctx.fillText(data.category, 134, 175);
+      ctx.fillText(data.category, 134, 171);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 22px Outfit, sans-serif';
-      ctx.fillText(data.name, 134, 204);
+      ctx.fillText(data.name, 134, 200);
 
       // 3. Spec Details List
-      const startY = 260;
+      const startY = 252;
       const rowH = 118;
 
       data.specs.forEach((s, idx) => {
@@ -490,15 +490,15 @@
       });
 
       // 4. Bottom Close Bar Banner
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
-      ctx.beginPath(); ctx.roundRect(32, 880, 448, 70, 35); ctx.fill();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-      ctx.stroke();
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+      ctx.beginPath(); ctx.roundRect(32, 876, 448, 76, 38); ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.lineWidth = 1.5; ctx.stroke();
 
       ctx.fillStyle = '#00f0ff';
       ctx.font = 'bold 20px Outfit, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Tap Here or Home Bar To Return', 256, 922);
+      ctx.fillText('‹ TAP ANYWHERE TO CLOSE APP ›', 256, 922);
     }
 
     // ── 3D Screen App Raycasting ──────────────────────────────────────────────
@@ -525,16 +525,11 @@
           }
         }
       } else if (currentScreenState === 'APP_VIEW') {
-        // Tapping Back Button (top left), Home Button (top right), or Home Bar at bottom
-        const isBackTop = (py <= 125);
-        const isHomeBar = (py >= 870);
-
-        if (isBackTop || isHomeBar) {
-          currentScreenState = 'HOMEPAGE';
-          activeAppKey = null;
-          renderPhoneScreenCanvas();
-          return;
-        }
+        // In APP_VIEW mode, tapping ANYWHERE on the 3D phone display screen (Back button, Home button, or body)
+        // returns cleanly to HOMEPAGE!
+        currentScreenState = 'HOMEPAGE';
+        activeAppKey = null;
+        renderPhoneScreenCanvas();
       }
     }
 
@@ -556,10 +551,25 @@
       }
     }
 
-    window.addEventListener('click', (e) => {
+    // Multi-device Pointer & Touch Event Handling
+    function onPointerEvent(e) {
       if (e.target.closest('#sov') || e.target.closest('#startBtn')) return;
-      checkScreenClick(e.clientX, e.clientY);
-    });
+
+      let clientX = e.clientX;
+      let clientY = e.clientY;
+
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      }
+
+      if (clientX !== undefined && clientY !== undefined) {
+        checkScreenClick(clientX, clientY);
+      }
+    }
+
+    window.addEventListener('click', onPointerEvent);
+    window.addEventListener('touchend', onPointerEvent, { passive: true });
 
     // ── Load model ───────────────────────────────────────────────────────────
     const loader = new GLTFLoader();
