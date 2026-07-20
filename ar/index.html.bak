@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>MG7 AR Experience</title>
+  <meta name="description" content="Experience the MG7 in Augmented Reality — place the car in your world"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- model-viewer -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+
+  <!-- Config -->
+  <script src="/config.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:       #C8102E;
+      --red-glow:  rgba(200,16,46,0.6);
+      --chrome:    #B0B0B0;
+      --offwhite:  #F0EDE8;
+      --black:     #0A0A0A;
+      --glass:     rgba(8,8,8,0.82);
+      --border:    rgba(200,16,46,0.35);
+      --font-head: 'Barlow Condensed', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      color: var(--offwhite);
+      font-family: var(--font-body);
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    /* ══════════════════════════════════════════════════
+       LIVE CAMERA BACKGROUND — fills entire screen
+    ══════════════════════════════════════════════════ */
+    #bg-camera {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+
+
+    /* ══════════════════════════════════════════════════
+       MODEL-VIEWER — transparent over camera
+    ══════════════════════════════════════════════════ */
+    #mv {
+      position: fixed; inset: 0;
+      width: 100vw; height: 100vh;
+      background-color: transparent;
+      --poster-color: transparent;
+      z-index: 10;
+    }
+
+    /* Custom loading poster */
+    .mv-poster {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(4px);
+    }
+    .mv-poster-logo {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 4px;
+    }
+    .mv-poster-logo img { height: 32px; filter: brightness(2); }
+    .mv-poster-logo-text {
+      font-family: var(--font-head); font-size: 26px; font-weight: 800;
+      letter-spacing: 0.15em; text-transform: uppercase;
+    }
+    .mv-poster-logo-text span { color: var(--red); }
+
+    .mv-poster-ring {
+      position: relative; width: 72px; height: 72px;
+    }
+    .mv-poster-ring svg {
+      width: 100%; height: 100%;
+      animation: spin 1.5s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .mv-poster-ring svg .track { fill: none; stroke: rgba(200,16,46,0.15); stroke-width: 2; }
+    .mv-poster-ring svg .arc   { fill: none; stroke: var(--red); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 40 150; }
+
+    .mv-poster-label {
+      font-family: var(--font-head); font-size: 16px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase; color: var(--offwhite);
+    }
+    .mv-poster-pct {
+      font-family: var(--font-head); font-size: 13px;
+      color: var(--red); letter-spacing: 0.1em;
+    }
+
+    /* AR launch button */
+    .ar-button {
+      position: absolute;
+      bottom: 90px; left: 50%; transform: translateX(-50%);
+      height: 54px; padding: 0 32px;
+      background: var(--red); border: none; color: #fff;
+      font-family: var(--font-head); font-size: 17px;
+      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: 10px;
+      transition: background 0.2s, transform 0.15s;
+      z-index: 100;
+      box-shadow: 0 0 15px rgba(200,16,46,0.6);
+      animation: ar-pulse 2s infinite;
+      border-radius: 4px;
+    }
+    @keyframes ar-pulse {
+      0%, 100% { box-shadow: 0 0 10px rgba(200,16,46,0.4); }
+      50% { box-shadow: 0 0 25px rgba(200,16,46,0.9); }
+    }
+    .ar-button:hover  { background: #e01230; transform: translateX(-50%) scale(1.03); }
+    .ar-button:active { transform: translateX(-50%) scale(0.97); }
+    .ar-button svg { width: 20px; height: 20px; }
+
+    /* ══════════════════════════════════════════════════
+       START OVERLAY
+    ══════════════════════════════════════════════════ */
+    #start-overlay {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--black);
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+    #start-overlay.hidden { opacity: 0; pointer-events: none; }
+    .so-content { text-align: center; }
+    .so-logo { height: 40px; filter: brightness(10); margin-bottom: 16px; }
+    .so-title {
+      font-family: var(--font-head); font-size: 32px; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .so-title span { color: var(--red); }
+    .so-sub {
+      font-size: 13px; color: var(--chrome); line-height: 1.6;
+      margin-bottom: 24px; font-family: var(--font-body);
+    }
+    #so-btn {
+      height: 54px; padding: 0 40px;
+      background: var(--red); border: none; color: #fff;
+      font-family: var(--font-head); font-size: 18px;
+      font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
+    }
+    #so-btn:hover { background: #e01230; }
+    #so-btn:active { transform: scale(0.97); }
+
+    /* ══════════════════════════════════════════════════
+       HEADER
+    ══════════════════════════════════════════════════ */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      height: 52px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      transition: opacity 0.4s;
+    }
+    #header.hidden { opacity: 0; pointer-events: none; }
+    .hdr-brand { display: flex; align-items: center; gap: 10px; }
+    .hdr-brand img { height: 28px; filter: brightness(10); }
+    .hdr-brand span {
+      font-family: var(--font-head); font-size: 18px; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .hdr-badge {
+      font-family: var(--font-head); font-size: 10px;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--red); border: 1px solid var(--red);
+      padding: 3px 10px;
+    }
+
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+    /* ══════════════════════════════════════════════════
+       ORBITAL INFO PANELS
+    ══════════════════════════════════════════════════ */
+    #panels-wrap {
+      position: fixed; inset: 0; z-index: 20;
+      pointer-events: none;
+      /* Hidden until model loads */
+      opacity: 0; transition: opacity 0.8s ease;
+    }
+    #panels-wrap.visible { opacity: 1; }
+
+    .info-panel {
+      position: absolute;
+      width: 120px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      padding: 13px 11px 11px;
+      pointer-events: all;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+
+      /* Entrance from below */
+      opacity: 0;
+      transform: translateY(50px) scale(0.8);
+      transition:
+        opacity   0.5s ease,
+        transform 0.5s cubic-bezier(0.22,1,0.36,1),
+        border-color 0.25s,
+        box-shadow   0.25s;
+    }
+    .info-panel.in {
+      opacity: 1;
+      transform: var(--pos);
+    }
+
+    /* Connector line from panel to car */
+    .info-panel::before {
+      content: '';
+      position: absolute;
+      background: var(--border);
+      pointer-events: none;
+    }
+
+    .info-panel:hover,
+    .info-panel.active {
+      border-color: var(--red);
+      box-shadow: 0 0 20px var(--red-glow), inset 0 0 8px rgba(200,16,46,0.08);
+    }
+    .info-panel.active {
+      animation: panel-pulse 2s ease-in-out infinite;
+    }
+    @keyframes panel-pulse {
+      0%,100% { box-shadow: 0 0 12px rgba(200,16,46,0.3); }
+      50%      { box-shadow: 0 0 30px rgba(200,16,46,0.7); }
+    }
+
+    .panel-icon  {
+      font-size: 20px; text-align: center; margin-bottom: 5px;
+      filter: drop-shadow(0 0 6px var(--red-glow));
+    }
+    .panel-title {
+      font-family: var(--font-head); font-size: 9px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--chrome); text-align: center; margin-bottom: 3px;
+    }
+    .panel-value {
+      font-family: var(--font-head); font-size: 18px; font-weight: 800;
+      text-align: center; color: var(--offwhite); line-height: 1.05;
+      margin-bottom: 3px;
+    }
+    .panel-divider { height: 1px; background: var(--border); margin: 5px 0; }
+    .panel-detail  {
+      font-size: 10px; color: var(--chrome);
+      text-align: center; line-height: 1.3;
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s ease, opacity 0.3s;
+      opacity: 0;
+    }
+    .info-panel.active .panel-detail { max-height: 50px; opacity: 1; }
+
+    /* Float bob per panel */
+    @keyframes bob0 { 0%,100%{translate:0 0}   50%{translate:0 -6px} }
+    @keyframes bob1 { 0%,100%{translate:0 0}   50%{translate:0 -5px} }
+    @keyframes bob2 { 0%,100%{translate:0 0}   50%{translate:0 -7px} }
+    @keyframes bob3 { 0%,100%{translate:0 0}   50%{translate:0 -5px} }
+    @keyframes bob4 { 0%,100%{translate:0 0}   50%{translate:0 -6px} }
+    @keyframes bob5 { 0%,100%{translate:0 0}   50%{translate:0 -5px} }
+
+    /* Connector SVG lines */
+    #connector-svg {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 19;
+      opacity: 0; transition: opacity 0.8s ease;
+    }
+    #connector-svg.visible { opacity: 1; }
+
+    /* ══════════════════════════════════════════════════
+       BOTTOM HUD BAR
+    ══════════════════════════════════════════════════ */
+    #hud-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hud-left {
+      font-family: var(--font-head); font-size: 12px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--chrome);
+    }
+    .hud-left strong { color: var(--offwhite); font-size: 15px; }
+    .hud-tip {
+      font-family: var(--font-head); font-size: 10px;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(176,176,176,0.6);
+    }
+
+    /* Load progress */
+    #load-progress {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: 2px; background: rgba(200,16,46,0.12); z-index: 200;
+      transition: opacity 0.5s;
+    }
+    #load-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--red), #ff4060);
+      box-shadow: 0 0 10px var(--red);
+      transition: width 0.25s ease;
+    }
+
+    /* ══════════════════════════════════════════════════
+       AR HUD (native AR session active)
+    ══════════════════════════════════════════════════ */
+    #ar-hud {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+      background: rgba(0,0,0,0.7);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      transform: translateY(100%); transition: transform 0.4s ease;
+    }
+    #ar-hud.visible { transform: translateY(0); }
+    .hud-ar-label {
+      font-family: var(--font-head); font-size: 13px;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome);
+    }
+    .hud-ar-live {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-head); font-size: 11px;
+      color: var(--red); letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .hud-ar-live::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--red); display: block;
+      animation: blink 1.2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Start Overlay for Safari Gesture ══ -->
+<div id="start-overlay">
+  <div class="so-content">
+    <img src="/shared/mg-logo.svg" alt="MG" class="so-logo"/>
+    <div class="so-title">MG7 <span>AR</span></div>
+    <div class="so-sub">Tap below to allow camera access<br>and start the experience</div>
+    <button id="so-btn">Start Experience</button>
+  </div>
+</div>
+
+<!-- ══ Live Camera Background ══ -->
+<video id="bg-camera" autoplay playsinline muted></video>
+
+<!-- ══ Connector SVG lines ══ -->
+<svg id="connector-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+<!-- ══ Header ══ -->
+<div id="header">
+  <div class="hdr-brand">
+    <img src="/shared/mg-logo.svg" alt="MG"/>
+    <span>MG7 · AR</span>
+  </div>
+  <div class="hdr-badge">WebAR</div>
+</div>
+
+<!-- ══ Load progress ══ -->
+<div id="load-progress"><div id="load-bar"></div></div>
+
+<!-- ══ MODEL VIEWER ══ -->
+<model-viewer
+  id="mv"
+  src="/mg7.glb?v=2"
+  alt="MG7 3D Model"
+  ar
+  ar-modes="webxr scene-viewer quick-look"
+  camera-controls
+  touch-action="none"
+  auto-rotate
+  auto-rotate-delay="1500"
+  rotation-per-second="12deg"
+  shadow-intensity="0.6"
+  shadow-softness="0.8"
+  exposure="1.15"
+  environment-image="neutral"
+  camera-orbit="0deg 75deg 9m"
+  field-of-view="30deg"
+>
+  <!-- Custom loading poster -->
+  <div slot="poster" class="mv-poster">
+    <div class="mv-poster-logo">
+      <img src="/shared/mg-logo.svg" alt="MG"/>
+      <div class="mv-poster-logo-text">MG<span>7</span></div>
+    </div>
+    <div class="mv-poster-ring">
+      <svg viewBox="0 0 72 72">
+        <circle class="track" cx="36" cy="36" r="30"/>
+        <circle class="arc"   cx="36" cy="36" r="30"/>
+      </svg>
+    </div>
+    <div class="mv-poster-pct" id="pct-text">0%</div>
+  </div>
+  <!-- AR button (True SLAM tracking for iOS/Android) -->
+  <button slot="ar-button" class="ar-button" id="ar-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="2" y="3" width="20" height="14" rx="1"/>
+      <path d="M8 21h8M12 17v4"/>
+      <path d="M7 8l5 3 5-3M12 11v5"/>
+    </svg>
+    Start True AR
+  </button>
+</model-viewer>
+
+<!-- ══ Orbital Info Panels ══ -->
+<div id="panels-wrap"></div>
+
+<!-- ══ Bottom HUD ══ -->
+<div id="hud-bar">
+  <div class="hud-left">
+    <strong>MG7</strong><br>AR Experience
+  </div>
+  <div class="hud-tip">Tap panels for details</div>
+</div>
+
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CAR SPECS
+// ══════════════════════════════════════════════════════
+const SPECS = [
+  { icon: '⚡', title: 'Engine',    value: '1.5T',      detail: '169 HP · 275 Nm',  angle:   0 },
+  { icon: '🏎',  title: '0–100',    value: '8.2s',      detail: 'Sport Mode Active', angle:  60 },
+  { icon: '📡', title: 'Tech',     value: 'ADAS L2',   detail: 'Lane Keep + ACC',   angle: 120 },
+  { icon: '🔋', title: 'Fuel',     value: '6.8L',      detail: 'Per 100 km',        angle: 180 },
+  { icon: '📐', title: 'Length',   value: '4675mm',    detail: '1842mm Wide',       angle: 240 },
+  { icon: '⭐', title: 'Safety',   value: '5-Star',    detail: 'Euro NCAP 2024',    angle: 300 },
+];
+
+// ══════════════════════════════════════════════════════
+//  DOM refs
+// ══════════════════════════════════════════════════════
+const mv         = document.getElementById('mv');
+const panelsWrap = document.getElementById('panels-wrap');
+const connSvg    = document.getElementById('connector-svg');
+const header     = document.getElementById('header');
+const loadBar    = document.getElementById('load-bar');
+const pctText    = document.getElementById('pct-text');
+const bgCamera   = document.getElementById('bg-camera');
+const hudBar     = document.getElementById('hud-bar');
+
+// ══════════════════════════════════════════════════════
+//  Camera — call getUserMedia directly, no custom dialog.
+//  Browser shows its OWN native permission prompt once,
+//  then camera opens automatically on every future visit.
+// ══════════════════════════════════════════════════════
+const startOverlay = document.getElementById('start-overlay');
+const startBtn     = document.getElementById('so-btn');
+
+let cameraActive = false;
+
+function startCamera() {
+  if (cameraActive) return;
+  startOverlay.classList.add('hidden'); // hide overlay immediately
+  
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }
+    }).then(stream => {
+      bgCamera.srcObject = stream;
+      cameraActive = true;
+    }).catch(err => {
+      console.warn('Camera denied or unavailable:', err.message);
+      alert('Camera access denied. Please allow camera access in your Safari settings.');
+    });
+  } else {
+    alert('Camera API is not available. Please use HTTPS.');
+  }
+}
+
+// Strictly bind to the explicit button click to satisfy Safari iOS perfectly
+startBtn.addEventListener('click', startCamera);
+
+
+// ══════════════════════════════════════════════════════
+//  Build orbital panels
+// ══════════════════════════════════════════════════════
+const panelEls = [];
+const CENTER_X = () => window.innerWidth  / 2;
+const CENTER_Y = () => window.innerHeight * 0.52;
+// Use the same radius for X and Y to make it a perfect circle, based on screen size
+const RADIUS_X = () => Math.min(window.innerWidth * 0.42, 190);
+const RADIUS_Y = () => Math.min(window.innerWidth * 0.42, 190);
+const PW = 120, PH = 90; // panel approximate dims
+
+SPECS.forEach((spec, i) => {
+  const panel = document.createElement('div');
+  panel.className = 'info-panel';
+  panel.dataset.idx = i;
+  panel.innerHTML = `
+    <div class="panel-icon">${spec.icon}</div>
+    <div class="panel-title">${spec.title}</div>
+    <div class="panel-value">${spec.value}</div>
+    <div class="panel-divider"></div>
+    <div class="panel-detail">${spec.detail}</div>
+  `;
+  panel.style.animation = `bob${i} ${2.6 + i * 0.22}s ease-in-out ${i * 0.38}s infinite`;
+  panel.addEventListener('click', () => togglePanel(panel));
+  panelsWrap.appendChild(panel);
+  panelEls.push(panel);
+});
+
+function positionPanels() {
+  const cx = CENTER_X(), cy = CENTER_Y();
+  const rx = RADIUS_X(), ry = RADIUS_Y();
+
+  panelEls.forEach((panel, i) => {
+    const angleDeg = SPECS[i].angle;
+    const rad = (angleDeg - 90) * Math.PI / 180;  // -90 so 0° = top
+    const x = cx + rx * Math.cos(rad) - PW / 2;
+    const y = cy + ry * Math.sin(rad) - PH / 2;
+    panel.style.left = x + 'px';
+    panel.style.top  = y + 'px';
+    panel.style.setProperty('--pos', `translate(0,0)`);
+    // Store center coords for connectors
+    panel.dataset.cx = Math.round(x + PW / 2);
+    panel.dataset.cy = Math.round(y + PH / 2);
+  });
+
+  drawConnectors(cx, cy);
+}
+
+function drawConnectors(cx, cy) {
+  connSvg.innerHTML = '';
+  panelEls.forEach((panel, i) => {
+    const pcx = parseInt(panel.dataset.cx);
+    const pcy = parseInt(panel.dataset.cy);
+    if (!pcx && !pcy) return;
+
+    // Animated dashed line from panel center to car center
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', pcx);
+    line.setAttribute('y1', pcy);
+    line.setAttribute('x2', cx);
+    line.setAttribute('y2', cy);
+    line.setAttribute('stroke', 'rgba(200,16,46,0.22)');
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '4 6');
+
+    const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+    anim.setAttribute('attributeName', 'stroke-dashoffset');
+    anim.setAttribute('from', '0');
+    anim.setAttribute('to',   '-20');
+    anim.setAttribute('dur',  (1.4 + i * 0.15) + 's');
+    anim.setAttribute('repeatCount', 'indefinite');
+    line.appendChild(anim);
+
+    // End dot on panel side
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', pcx);
+    dot.setAttribute('cy', pcy);
+    dot.setAttribute('r',  '3');
+    dot.setAttribute('fill', 'var(--red)');
+    dot.setAttribute('opacity', '0.6');
+
+    connSvg.appendChild(line);
+    connSvg.appendChild(dot);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  Panel toggle
+// ══════════════════════════════════════════════════════
+let activePanel = null;
+function togglePanel(panel) {
+  if (activePanel && activePanel !== panel) activePanel.classList.remove('active');
+  panel.classList.toggle('active');
+  activePanel = panel.classList.contains('active') ? panel : null;
+}
+
+// ══════════════════════════════════════════════════════
+//  Animate panels in (staggered)
+// ══════════════════════════════════════════════════════
+function showPanels() {
+  positionPanels();
+  panelEls.forEach((panel, i) => {
+    setTimeout(() => panel.classList.add('in'), 120 + i * 140);
+  });
+  setTimeout(() => {
+    panelsWrap.classList.add('visible');
+    connSvg.classList.add('visible');
+  }, 80);
+}
+
+// ══════════════════════════════════════════════════════
+//  model-viewer events
+// ══════════════════════════════════════════════════════
+mv.addEventListener('progress', e => {
+  const pct = Math.round(e.detail.totalProgress * 100);
+  loadBar.style.width = pct + '%';
+  pctText.textContent = pct + '%';
+  if (pct >= 100) {
+    setTimeout(() => {
+      document.getElementById('load-progress').style.opacity = '0';
+    }, 700);
+  }
+});
+
+mv.addEventListener('load', () => {
+  mv.reveal = 'auto';
+  mv.dismissPoster();
+  setTimeout(showPanels, 900);
+});
+
+// Re-position panels on resize
+window.addEventListener('resize', () => {
+  if (panelsWrap.classList.contains('visible')) positionPanels();
+});
+</script>
+</body>
+</html>

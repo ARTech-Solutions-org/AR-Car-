@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MG7 — AR Experience</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --mg-red: #da291c; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; font-family: 'Outfit', sans-serif; overflow: hidden; color: #fff; touch-action: none; }
+
+    #safari-bg {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; z-index: 0; display: none;
+    }
+    #ar-container {
+      position: fixed; inset: 0; z-index: 1; display: none;
+    }
+
+    /* ── Start screen ── */
+    #sov {
+      position: fixed; inset: 0; z-index: 100;
+      background: linear-gradient(160deg, #0a0a0f 0%, #12121a 60%, #1a0505 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      transition: opacity 0.4s;
+    }
+    #sov.off { opacity: 0; pointer-events: none; }
+    #sov img { width: 80px; filter: brightness(0) invert(1); margin-bottom: 8px; }
+    #sov .sv-t { font-size: 2.4rem; font-weight: 700; letter-spacing: 0.04em; }
+    #sov .sv-t em { color: var(--mg-red); font-style: normal; }
+    #sov .sv-s { font-size: 0.9rem; color: rgba(255,255,255,0.5); text-align: center; max-width: 260px; line-height: 1.5; }
+    #startBtn {
+      margin-top: 24px;
+      background: var(--mg-red); color: #fff;
+      border: none; border-radius: 50px;
+      padding: 16px 48px; font-size: 1rem; font-weight: 700;
+      font-family: 'Outfit', sans-serif; cursor: pointer;
+      letter-spacing: 0.08em;
+      box-shadow: 0 8px 32px rgba(218,41,28,0.4);
+      transition: transform 0.15s;
+    }
+    #startBtn:active { transform: scale(0.96); }
+
+    #top-logo {
+      position: fixed; top: 20px; left: 50%;
+      transform: translateX(-50%);
+      width: 52px; z-index: 50;
+      filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+      opacity: 0; transition: opacity 0.5s; display: none;
+    }
+    #top-logo.visible { opacity: 1; }
+
+    #tap-prompt {
+      position: fixed; bottom: 110px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50px; padding: 12px 28px;
+      font-size: 0.9rem; font-weight: 600;
+      z-index: 50; opacity: 0; transition: opacity 0.4s;
+      display: none; white-space: nowrap;
+    }
+    #tap-prompt.visible { opacity: 1; }
+
+    /* ── Hint bar after placement ── */
+    #hint-bar {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%);
+      display: none; gap: 18px; z-index: 50;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50px; padding: 10px 24px;
+      font-size: 0.75rem; color: rgba(255,255,255,0.7);
+      letter-spacing: 0.03em; white-space: nowrap;
+    }
+    #hint-bar.visible { display: flex; }
+    #hint-bar span { display: flex; align-items: center; gap: 5px; }
+
+    /* ── Hotspot cards ── */
+    .hspot {
+      position: fixed;
+      background: rgba(12, 12, 16, 0.88);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 8px 12px;
+      min-width: 82px;
+      text-align: center;
+      backdrop-filter: blur(14px);
+      pointer-events: none;
+      transform: translate(-50%, -115%);
+      transition: opacity 0.25s;
+      display: none;
+      z-index: 30;
+    }
+    .hspot::after {
+      content: '';
+      position: absolute;
+      bottom: -6px; left: 50%;
+      transform: translateX(-50%);
+      width: 2px; height: 6px;
+      background: rgba(255,255,255,0.3);
+    }
+    .hspot .h-icon { font-size: 1.3rem; }
+    .hspot .h-title { font-size: 0.55rem; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.1em; margin: 1px 0; }
+    .hspot .h-val { font-size: 1rem; font-weight: 700; line-height: 1.1; }
+    .hspot .h-detail { font-size: 0.6rem; color: var(--mg-red); font-weight: 600; }
+
+    #toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85); color: #fff;
+      padding: 10px 22px; border-radius: 50px;
+      font-size: 0.85rem; z-index: 200;
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; max-width: 88vw; text-align: center;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <video id="safari-bg" autoplay playsinline muted></video>
+  <div id="ar-container"></div>
+
+  <div id="sov">
+    <img src="/shared/mg-logo.svg" alt="MG"/>
+    <div class="sv-t">MG7 <em>AR</em></div>
+    <div class="sv-s">Point camera at a flat surface<br>then tap to place the car</div>
+    <button id="startBtn">Open Camera</button>
+  </div>
+
+  <img src="/shared/mg-logo.svg" id="top-logo" alt="MG"/>
+  <div id="tap-prompt">👆 Tap to place the MG7</div>
+
+  <div id="hint-bar">
+    <span>↔ Drag to rotate</span>
+    <span>🤏 Pinch to resize</span>
+  </div>
+
+  <!-- 6 info hotspot cards -->
+  <div class="hspot" id="hs-engine"><div class="h-icon">⚡</div><div class="h-title">Engine</div><div class="h-val">1.5T</div><div class="h-detail">169 HP</div></div>
+  <div class="hspot" id="hs-speed"><div class="h-icon">🏎</div><div class="h-title">0–100</div><div class="h-val">8.2s</div><div class="h-detail">Sport Mode</div></div>
+  <div class="hspot" id="hs-tech"><div class="h-icon">📡</div><div class="h-title">Tech</div><div class="h-val">ADAS L2</div><div class="h-detail">Lane Keep</div></div>
+  <div class="hspot" id="hs-fuel"><div class="h-icon">🔋</div><div class="h-title">Fuel</div><div class="h-val">6.8L</div><div class="h-detail">Per 100 km</div></div>
+  <div class="hspot" id="hs-length"><div class="h-icon">📐</div><div class="h-title">Length</div><div class="h-val">4675mm</div><div class="h-detail">1842mm Wide</div></div>
+  <div class="hspot" id="hs-safety"><div class="h-icon">⭐</div><div class="h-title">Safety</div><div class="h-val">5★</div><div class="h-detail">Euro NCAP</div></div>
+
+  <div id="toast"></div>
+
+  <script type="importmap">
+    { "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }}
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader }  from 'three/addons/loaders/DRACOLoader.js';
+
+    // ── DOM ───────────────────────────────────────────────────────────────────
+    const sov      = document.getElementById('sov');
+    const startBtn = document.getElementById('startBtn');
+    const container= document.getElementById('ar-container');
+    const safariBg = document.getElementById('safari-bg');
+    const tapPrompt= document.getElementById('tap-prompt');
+    const topLogo  = document.getElementById('top-logo');
+    const hintBar  = document.getElementById('hint-bar');
+    const toast    = document.getElementById('toast');
+
+    // Hotspot elements — positions computed after model loads from real bounding box
+    const HOTSPOT_DEFS = [
+      { id: 'hs-engine' },   // front-center (hood)
+      { id: 'hs-speed'  },   // front-right side
+      { id: 'hs-tech'   },   // roof center
+      { id: 'hs-fuel'   },   // rear-center (trunk)
+      { id: 'hs-length' },   // rear-left side
+      { id: 'hs-safety' },   // front-left side
+    ].map(d => ({
+      el: document.getElementById(d.id),
+      local: new THREE.Vector3()   // filled after model loads
+    }));
+
+    // ── Three.js setup ────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    container.appendChild(renderer.domElement);
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+    scene.add(camera);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
+    sun.position.set(4, 10, 6);
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6);
+    fill.position.set(-4, 2, -4);
+    scene.add(fill);
+
+    const clock = new THREE.Clock();
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ── Reticle ───────────────────────────────────────────────────────────────
+    function buildReticle() {
+      const g = new THREE.Group();
+      const outerGeo = new THREE.RingGeometry(0.20, 0.24, 48);
+      outerGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+      g.add(new THREE.Mesh(outerGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.9, transparent: true, side: THREE.DoubleSide })));
+      const dotGeo = new THREE.CircleGeometry(0.04, 32);
+      dotGeo.applyMatrix4(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+      g.add(new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color: 0xda291c, opacity: 0.9, transparent: true })));
+      g.matrixAutoUpdate = false;
+      g.visible = false;
+      scene.add(g);
+      return g;
+    }
+    const reticle = buildReticle();
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let carRoot   = null;
+    let placed    = false;
+    let carScale  = 1.0;          // base scale after model load
+    let currentScale = 1.0;       // live scale (pinch adjustable)
+    let autoRotate   = true;      // 360 auto-rotation
+    let autoRotateSpeed = 0.4;    // deg per frame (radians/s × delta)
+    let carYaw    = 0;            // current Y rotation of car
+
+    // ── Load model ───────────────────────────────────────────────────────────
+    const loader = new GLTFLoader();
+    const draco  = new DRACOLoader();
+    draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    loader.setDRACOLoader(draco);
+
+    loader.load('/mg7.glb', (gltf) => {
+      carRoot = gltf.scene;
+      const box = new THREE.Box3().setFromObject(carRoot);
+      const sz  = new THREE.Vector3();
+      const ctr = new THREE.Vector3();
+      box.getSize(sz);
+      box.getCenter(ctr);
+
+      // Fit to ~2 meters long (smaller default size)
+      carScale = 2.0 / Math.max(sz.x, sz.z);
+      currentScale = carScale;
+
+      // Spread hotspots like a clock around the car (elliptical, one per 60°)
+      // Using the bounding box EDGE + generous outward push so they're clearly separated
+      const rx   = sz.x * 0.62;   // ellipse X radius (car width)
+      const rz   = sz.z * 0.62;   // ellipse Z radius (car length)
+      const yTop = ctr.y + sz.y * 0.55;  // high enough to float above body
+      const yMid = ctr.y + sz.y * 0.30;  // side-window height
+
+      // 0° = front, 90° = right, 180° = rear, 270° = left  (in car local space, Z- is forward)
+      // We want: front(engine), front-right(speed), rear-right(tech), rear(fuel), rear-left(length), front-left(safety)
+      const angles = [0, 60, 120, 180, 240, 300]; // degrees around car
+      const heights= [yTop, yMid, yMid, yTop, yMid, yMid];
+
+      angles.forEach((deg, i) => {
+        const rad = THREE.MathUtils.degToRad(deg);
+        // Map angle to car local axes: angle 0 = front (+Z), 90 = right (+X)
+        const lx = Math.sin(rad) * rx;
+        const lz = Math.cos(rad) * rz;
+        HOTSPOT_DEFS[i].local.set(ctr.x + lx, heights[i], ctr.z + lz);
+      });
+
+
+      carRoot.visible = false;
+      scene.add(carRoot);
+    }, undefined, (e) => showToast('Load error: ' + e.message));
+
+    // ── Gesture state ─────────────────────────────────────────────────────────
+    let dragActive       = false;
+    let lastDragX        = 0;
+    let pinchActive      = false;
+    let lastPinchDist    = 0;
+    let lastPinchScale   = 1.0;
+
+    function getPinchDist(e) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    // We attach gesture listeners AFTER placement
+    function enableGestures() {
+      document.addEventListener('touchstart', onTStart, { passive: true });
+      document.addEventListener('touchmove',  onTMove,  { passive: true });
+      document.addEventListener('touchend',   onTEnd,   { passive: true });
+    }
+
+    function onTStart(e) {
+      if (!placed || !carRoot) return;
+      if (e.touches.length === 1) {
+        dragActive = true;
+        lastDragX  = e.touches[0].clientX;
+        autoRotate = false; // pause auto-rotate while dragging
+      } else if (e.touches.length === 2) {
+        dragActive    = false;
+        pinchActive   = true;
+        lastPinchDist  = getPinchDist(e);
+        lastPinchScale = currentScale;
+      }
+    }
+
+    function onTMove(e) {
+      if (!placed || !carRoot) return;
+      if (dragActive && e.touches.length === 1) {
+        const dx = e.touches[0].clientX - lastDragX;
+        lastDragX = e.touches[0].clientX;
+        carYaw += dx * 0.008; // radians
+        carRoot.rotation.y = carYaw;
+      } else if (pinchActive && e.touches.length === 2) {
+        const dist   = getPinchDist(e);
+        const factor = dist / lastPinchDist;
+        const newScale = Math.max(carScale * 0.3, Math.min(carScale * 4.0, lastPinchScale * factor));
+        currentScale = newScale;
+        carRoot.scale.setScalar(currentScale);
+      }
+    }
+
+    function onTEnd(e) {
+      if (e.touches.length === 0) {
+        pinchActive = false;
+        dragActive  = false;
+        // Resume auto-rotate 1.5s after user lets go
+        setTimeout(() => { autoRotate = true; }, 1500);
+      } else if (e.touches.length === 1) {
+        pinchActive = false;
+        lastPinchDist = 0;
+      }
+    }
+
+    // ── Hotspot projection ────────────────────────────────────────────────────
+    const _wp = new THREE.Vector3();
+    const _np = new THREE.Vector3();
+
+    function updateHotspots() {
+      if (!carRoot) return;
+      const W = window.innerWidth, H = window.innerHeight;
+      HOTSPOT_DEFS.forEach(({ el, local }) => {
+        // transform local offset by car's world matrix (includes scale + rotation)
+        _wp.copy(local).applyMatrix4(carRoot.matrixWorld);
+        _np.copy(_wp).project(camera);
+        if (_np.z > 1) { el.style.opacity = '0'; return; }
+        const sx = ( _np.x * 0.5 + 0.5) * W;
+        const sy = (-_np.y * 0.5 + 0.5) * H;
+        const dist = _wp.distanceTo(camera.position);
+        const op   = Math.max(0, Math.min(1, 1 - (dist - 1.5) / 8));
+        el.style.left    = sx + 'px';
+        el.style.top     = sy + 'px';
+        el.style.opacity = op.toString();
+      });
+    }
+
+    function showHotspots() {
+      HOTSPOT_DEFS.forEach(({ el }) => { el.style.display = 'block'; });
+    }
+
+    function hideHotspots() {
+      HOTSPOT_DEFS.forEach(({ el }) => { el.style.display = 'none'; el.style.opacity = '0'; });
+    }
+
+    // ── Common placement helper ───────────────────────────────────────────────
+    function placeCar(worldPos) {
+      if (!carRoot) { showToast('Model still loading…'); return; }
+      placed = true;
+      reticle.visible = false;
+      hideTapPrompt();
+
+      carRoot.position.copy(worldPos);
+      carRoot.scale.setScalar(0);
+      carRoot.visible = true;
+      carRoot.rotation.y = carYaw;
+
+      // Face camera on the Y axis
+      const cp = new THREE.Vector3();
+      camera.getWorldPosition(cp);
+      cp.y = carRoot.position.y;
+      carRoot.lookAt(cp);
+      carYaw = carRoot.rotation.y;
+
+      // Scale-up pop
+      animateScale(carRoot, currentScale, 550);
+
+      setTimeout(() => {
+        showHotspots();
+        hintBar.classList.add('visible');
+        enableGestures();
+      }, 620);
+    }
+
+    // ── Start button ──────────────────────────────────────────────────────────
+    startBtn.addEventListener('click', async () => {
+      const isIOS    = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const hasWebXR = navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
+      if (hasWebXR)      startWebXR();
+      else if (isIOS)    startSafariAR();
+      else               showToast('AR requires Chrome on Android or Safari on iOS 16+');
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PATH A — WebXR / Android Chrome
+    // ─────────────────────────────────────────────────────────────────────────
+    let hitTestSrc = null, hitTestReq = false;
+
+    async function startWebXR() {
+      try {
+        const session = await navigator.xr.requestSession('immersive-ar', {
+          requiredFeatures: ['hit-test'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: document.body },
+        });
+        renderer.xr.setReferenceSpaceType('local');
+        await renderer.xr.setSession(session);
+        session.addEventListener('end', () => {
+          placed = false; hitTestSrc = null; hitTestReq = false;
+          hideHotspots(); hintBar.classList.remove('visible');
+        });
+        sov.classList.add('off');
+        container.style.display = 'block';
+        showTapPrompt(); showLogo();
+
+        session.addEventListener('select', () => {
+          if (!placed && reticle.visible) {
+            const pos = new THREE.Vector3();
+            reticle.matrix.decompose(pos, new THREE.Quaternion(), new THREE.Vector3());
+            placeCar(pos);
+          }
+        });
+
+        renderer.setAnimationLoop((time, frame) => {
+          const delta = clock.getDelta();
+          if (frame) {
+            const ref = renderer.xr.getReferenceSpace();
+            const ses = renderer.xr.getSession();
+            if (!hitTestReq) {
+              ses.requestReferenceSpace('viewer').then(vs =>
+                ses.requestHitTestSource({ space: vs }).then(s => { hitTestSrc = s; })
+              );
+              hitTestReq = true;
+            }
+            if (hitTestSrc && !placed) {
+              const results = frame.getHitTestResults(hitTestSrc);
+              if (results.length > 0) {
+                reticle.visible = true;
+                reticle.matrix.fromArray(results[0].getPose(ref).transform.matrix);
+                reticle.matrixWorldNeedsUpdate = true;
+                const p = 1 + 0.1 * Math.sin(time * 0.005);
+                reticle.children.forEach(c => c.scale.setScalar(p));
+              } else { reticle.visible = false; }
+            }
+          }
+          // Auto-rotate car
+          if (placed && carRoot && autoRotate) {
+            carYaw += delta * autoRotateSpeed;
+            carRoot.rotation.y = carYaw;
+          }
+          if (placed) updateHotspots();
+          renderer.render(scene, camera);
+        });
+
+      } catch (err) {
+        showToast('AR start failed: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PATH B — iOS Safari (camera BG + DeviceOrientation)
+    // ─────────────────────────────────────────────────────────────────────────
+    async function startSafariAR() {
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try { await DeviceOrientationEvent.requestPermission(); } catch(e) {}
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width:{ideal:1920}, height:{ideal:1080} }, audio: false
+        });
+      } catch(err) {
+        showToast('Camera denied. Enable in Settings → Safari → Camera.'); return;
+      }
+      safariBg.srcObject = stream;
+      safariBg.style.display = 'block';
+      await safariBg.play().catch(() => {});
+
+      container.style.display = 'block';
+      sov.classList.add('off');
+      camera.position.set(0, 1.6, 0);
+      camera.rotation.order = 'YXZ';
+      reticle.matrixAutoUpdate = true;
+
+      // DeviceOrientation → camera
+      const _eu = new THREE.Euler(0,0,0,'YXZ');
+      const _q1 = new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2);
+      const _qs = new THREE.Quaternion();
+      const _z  = new THREE.Vector3(0,0,1);
+      window.addEventListener('deviceorientation', e => {
+        _eu.set(
+          THREE.MathUtils.degToRad(e.beta  ?? 0),
+          THREE.MathUtils.degToRad(e.alpha ?? 0),
+         -THREE.MathUtils.degToRad(e.gamma ?? 0), 'YXZ'
+        );
+        camera.quaternion.setFromEuler(_eu);
+        camera.quaternion.multiply(_q1);
+        _qs.setFromAxisAngle(_z, -THREE.MathUtils.degToRad(window.screen?.orientation?.angle ?? 0));
+        camera.quaternion.multiply(_qs);
+      });
+
+      showTapPrompt(); showLogo();
+
+      const _rd = new THREE.Vector3();
+      const _fp = new THREE.Vector3();
+      let _lastFloor = null;
+
+      // Single tap to place
+      document.body.addEventListener('click', () => {
+        if (placed) return;
+        const pos = _lastFloor?.clone() ?? new THREE.Vector3(0, 0, -1.5);
+        placeCar(pos);
+      }, { once: true });
+
+      // Render loop
+      renderer.setAnimationLoop(() => {
+        clock.getDelta();
+        if (!placed) {
+          _rd.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+          if (_rd.y < -0.01) {
+            const t = -camera.position.y / _rd.y;
+            if (t > 0.3 && t < 14) {
+              _fp.set(camera.position.x + t*_rd.x, 0, camera.position.z + t*_rd.z);
+              reticle.position.copy(_fp);
+              reticle.visible = true;
+              _lastFloor = _fp.clone();
+              const p = 1 + 0.12 * Math.sin(Date.now() * 0.005);
+              reticle.children.forEach(c => c.scale.setScalar(p));
+              reticle.rotation.y += 0.02;
+            } else { reticle.visible = false; }
+          } else { reticle.visible = false; }
+        }
+        // Auto-rotate car
+        if (placed && carRoot && autoRotate) {
+          carYaw += (1/60) * autoRotateSpeed;
+          carRoot.rotation.y = carYaw;
+        }
+        if (placed) updateHotspots();
+        renderer.render(scene, camera);
+      });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function animateScale(obj, target, dur) {
+      const t0 = performance.now();
+      (function step() {
+        const t = Math.min((performance.now()-t0)/dur, 1);
+        obj.scale.setScalar((1-Math.pow(1-t,3)) * target);
+        if (t < 1) requestAnimationFrame(step);
+      })();
+    }
+
+    function showTapPrompt() {
+      tapPrompt.style.display = 'block';
+      requestAnimationFrame(() => tapPrompt.classList.add('visible'));
+    }
+    function hideTapPrompt() {
+      tapPrompt.classList.remove('visible');
+      setTimeout(() => tapPrompt.style.display = 'none', 400);
+    }
+    function showLogo() {
+      topLogo.style.display = 'block';
+      requestAnimationFrame(() => topLogo.classList.add('visible'));
+    }
+    function showToast(msg, dur=4500) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), dur);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MG7 Photo Experience — Kiosk</title>
+  <meta name="description" content="MG7 AI Photobooth — capture your moment with the MG7"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- QR Code library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- HTML2Canvas library for capturing the frame -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- MediaPipe Selfie Segmentation -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+
+  <!-- Config -->
+  <script src="/config.js"></script>
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:      #C8102E;
+      --red-dark: #8B0000;
+      --chrome:   #B0B0B0;
+      --offwhite: #F0EDE8;
+      --black:    #0A0A0A;
+      --dark:     #111111;
+      --darker:   #0D0D0D;
+      --border:   rgba(200,16,46,0.35);
+      --border-chrome: rgba(176,176,176,0.2);
+      --font-head: 'Barlow Condensed', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--black);
+      color: var(--offwhite);
+      font-family: var(--font-body);
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       LAYOUT — SCREENS
+    ═══════════════════════════════════════════════════════════ */
+    .screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .screen.active {
+      opacity: 1; pointer-events: all;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TOP BAR — persistent
+    ═══════════════════════════════════════════════════════════ */
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 56px;
+      background: var(--black);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+    }
+    #topbar .logo-wrap {
+      display: flex; align-items: center; gap: 14px;
+    }
+    #topbar img.logo {
+      height: 36px; width: auto;
+    }
+    #topbar .brand-name {
+      font-family: var(--font-head);
+      font-size: 22px; font-weight: 800;
+      letter-spacing: 0.12em;
+      color: var(--offwhite);
+      text-transform: uppercase;
+    }
+    #topbar .brand-name span { color: var(--red); }
+    #topbar .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; box-shadow: 0 0 8px var(--red); }
+      50%      { opacity: 0.4; box-shadow: 0 0 2px var(--red); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCREEN 1 — CAMERA
+    ═══════════════════════════════════════════════════════════ */
+    #screen-camera {
+      padding-top: 56px;
+      gap: 0;
+    }
+
+    .camera-stage {
+      position: relative;
+      width: min(480px, 90vw);
+      aspect-ratio: 3/4;
+      background: #050505;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    #video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror */
+    }
+
+    /* Silhouette overlay */
+    .silhouette-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .silhouette-svg {
+      height: 88%; width: auto;
+      opacity: 0.18;
+      filter: drop-shadow(0 0 12px var(--red));
+    }
+
+    /* Corner brackets */
+    .corner {
+      position: absolute; width: 28px; height: 28px;
+      border-color: var(--red);
+      border-style: solid;
+      border-width: 0;
+    }
+    .corner-tl { top: 12px; left: 12px; border-top-width: 2px; border-left-width: 2px; }
+    .corner-tr { top: 12px; right: 12px; border-top-width: 2px; border-right-width: 2px; }
+    .corner-bl { bottom: 12px; left: 12px; border-bottom-width: 2px; border-left-width: 2px; }
+    .corner-br { bottom: 12px; right: 12px; border-bottom-width: 2px; border-right-width: 2px; }
+
+    /* Scanline */
+    .scanline {
+      position: absolute; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+      box-shadow: 0 0 12px var(--red), 0 0 24px rgba(200,16,46,0.4);
+      animation: scan 2.8s ease-in-out infinite;
+      top: 0;
+    }
+    @keyframes scan {
+      0%   { top: 0%; opacity: 0; }
+      5%   { opacity: 1; }
+      95%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    /* Camera HUD info strip */
+    .hud-strip {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(10,10,10,0.8);
+      border-top: 1px solid var(--border);
+      padding: 6px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hud-text {
+      font-family: var(--font-head);
+      font-size: 11px; letter-spacing: 0.15em;
+      color: var(--chrome); text-transform: uppercase;
+    }
+    .hud-live {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-head); font-size: 11px;
+      color: var(--red); letter-spacing: 0.15em; text-transform: uppercase;
+    }
+    .hud-live::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--red); display: block;
+      animation: pulse-dot 1.5s infinite;
+    }
+
+    /* Controls below camera */
+    .camera-controls {
+      width: min(480px, 90vw);
+      padding: 18px 0 0;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    /* Camera selector */
+    .cam-selector-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cam-selector-label {
+      font-family: var(--font-head); font-size: 12px;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--chrome); white-space: nowrap;
+    }
+    select#camSelect {
+      flex: 1;
+      background: var(--dark);
+      border: 1px solid var(--border-chrome);
+      color: var(--offwhite);
+      font-family: var(--font-body); font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B0B0B0' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+      transition: border-color 0.2s;
+    }
+    select#camSelect:focus { border-color: var(--red); }
+
+    /* Capture button */
+    #btnCapture {
+      width: 100%; height: 64px;
+      background: var(--red);
+      border: none; color: #fff;
+      font-family: var(--font-head); font-size: 22px;
+      font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;
+      cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #btnCapture::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+      transform: translateX(-100%);
+      transition: transform 0.4s ease;
+    }
+    #btnCapture:hover::after { transform: translateX(100%); }
+    #btnCapture:hover { background: #e01230; }
+    #btnCapture:active { transform: scale(0.98); }
+
+    /* Countdown overlay */
+    #countdown-overlay {
+      position: absolute; inset: 0;
+      background: rgba(10,10,10,0.7);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-head); font-size: 140px; font-weight: 900;
+      color: var(--red);
+      text-shadow: 0 0 40px rgba(200,16,46,0.8);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.15s;
+    }
+    #countdown-overlay.visible { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCREEN 2 — PROCESSING
+    ═══════════════════════════════════════════════════════════ */
+    #screen-processing {
+      gap: 36px;
+    }
+
+    .processing-ring {
+      position: relative;
+      width: 140px; height: 140px;
+    }
+    .processing-ring svg {
+      width: 100%; height: 100%;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing-ring svg circle {
+      fill: none;
+      stroke: var(--red);
+      stroke-width: 2;
+      stroke-linecap: square;
+      stroke-dasharray: 60 340;
+      stroke-dashoffset: 0;
+    }
+    .processing-ring svg circle.track {
+      stroke: rgba(200,16,46,0.12);
+      stroke-dasharray: 400;
+    }
+    .processing-icon {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .processing-icon svg { width: 52px; height: 52px; }
+
+    .processing-text-wrap { text-align: center; }
+    .processing-title {
+      font-family: var(--font-head); font-size: 32px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--offwhite);
+    }
+    .processing-title span { color: var(--red); }
+    .processing-subtitle {
+      font-size: 13px; color: var(--chrome);
+      letter-spacing: 0.06em; margin-top: 8px;
+    }
+
+    /* Progress bar */
+    .progress-bar-wrap {
+      width: min(340px, 80vw);
+      height: 2px; background: rgba(176,176,176,0.12);
+    }
+    .progress-bar {
+      height: 100%; width: 0%; background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+      transition: width 0.3s ease;
+      animation: indeterminate 1.8s ease-in-out infinite;
+    }
+    @keyframes indeterminate {
+      0%   { width: 0%; margin-left: 0%; }
+      50%  { width: 60%; margin-left: 20%; }
+      100% { width: 0%; margin-left: 100%; }
+    }
+
+    .processing-steps {
+      display: flex; flex-direction: column; gap: 10px;
+      min-width: 260px;
+    }
+    .step-item {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--font-body); font-size: 13px;
+      color: var(--chrome); opacity: 0.4;
+      transition: opacity 0.4s, color 0.4s;
+    }
+    .step-item.active { opacity: 1; color: var(--offwhite); }
+    .step-item.done   { opacity: 1; color: var(--red); }
+    .step-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      border: 1px solid currentColor; flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .step-item.done .step-dot { background: var(--red); border-color: var(--red); }
+    .step-item.active .step-dot { box-shadow: 0 0 6px var(--offwhite); }
+
+    /* ═══════════════════════════════════════════════════════════
+       SCREEN 3 — RESULT
+    ═══════════════════════════════════════════════════════════ */
+    #screen-result {
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      padding-top: 56px;
+      gap: 40px;
+    }
+
+    /* ── Photo frame with QR embedded inside ── */
+    .result-photo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .result-photo-frame {
+      position: relative;
+      width: min(340px, 38vw);
+      aspect-ratio: 9/16;
+      border: 1px solid var(--border-chrome);
+      overflow: hidden;
+      background: #050505;
+      flex-shrink: 0;
+    }
+
+    /* Top label bar */
+    .result-photo-frame::before {
+      content: 'MG7 · AI PORTRAIT';
+      position: absolute; top: 0; left: 0; right: 0;
+      background: rgba(200,16,46,0.92);
+      font-family: var(--font-head); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+      padding: 7px 12px; color: #fff; z-index: 4;
+    }
+
+    #resultImg {
+      width: 100%; height: 100%;
+      object-fit: cover; display: block;
+    }
+
+    /* ── QR overlay at bottom of photo frame ── */
+    .qr-overlay {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      z-index: 5;
+      background: rgba(10,10,10,0.93);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+    }
+
+    /* QR code box */
+    .qr-box {
+      flex-shrink: 0;
+      background: #fff;
+      padding: 4px;
+      position: relative;
+    }
+    .qr-box::after {
+      content: '';
+      position: absolute; inset: -2px;
+      border: 1px solid var(--red);
+      animation: qr-pulse 2.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes qr-pulse {
+      0%,100% { opacity: 0.2; box-shadow: 0 0 0 0 rgba(200,16,46,0); }
+      50%      { opacity: 1;   box-shadow: 0 0 10px 2px rgba(200,16,46,0.4); }
+    }
+    #qrcode canvas, #qrcode img { display: block; }
+
+    /* Text beside QR */
+    .qr-text-col {
+      flex: 1;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .qr-brand-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .qr-brand-row img { height: 18px; }
+    .qr-brand-row span {
+      font-family: var(--font-head); font-size: 13px; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--offwhite);
+    }
+    .qr-cta-text {
+      font-family: var(--font-head); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--red); line-height: 1.2;
+    }
+    .qr-cta-sub {
+      font-size: 10px; color: var(--chrome); line-height: 1.3;
+    }
+
+    /* Corner brackets inside frame */
+    .result-photo-frame .corner { z-index: 3; }
+
+    /* ── Action buttons (right column) ── */
+    .result-actions-col {
+      display: flex; flex-direction: column;
+      gap: 14px;
+      width: min(220px, 22vw);
+    }
+    .result-actions-title {
+      font-family: var(--font-head); font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--chrome); margin-bottom: 4px;
+    }
+
+    /* Action buttons */
+    .action-buttons {
+      display: flex; flex-direction: column; gap: 12px; width: 100%;
+    }
+    .btn-action {
+      width: 100%; height: 52px;
+      border: none; cursor: pointer;
+      font-family: var(--font-head); font-size: 18px;
+      font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase;
+      transition: all 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .btn-primary {
+      background: var(--red); color: #fff;
+    }
+    .btn-primary:hover { background: #e01230; }
+    .btn-secondary {
+      background: transparent; color: var(--offwhite);
+      border: 1px solid var(--border-chrome);
+    }
+    .btn-secondary:hover {
+      border-color: var(--chrome); color: #fff;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       ERROR TOAST
+    ═══════════════════════════════════════════════════════════ */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: #1a0005;
+      border: 1px solid var(--red);
+      color: var(--offwhite);
+      font-family: var(--font-body); font-size: 13px;
+      padding: 12px 24px;
+      z-index: 200;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+      max-width: 500px; text-align: center;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════════
+       HIDDEN CANVAS
+    ═══════════════════════════════════════════════════════════ */
+    #captureCanvas { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div id="topbar">
+  <div class="logo-wrap">
+    <img class="logo" src="/shared/mg-logo.svg" alt="MG"/>
+    <span class="brand-name">MG<span>7</span> · Photo Experience</span>
+  </div>
+  <div class="status-dot"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SCREEN 1 — CAMERA
+════════════════════════════════════════════════ -->
+<div id="screen-camera" class="screen active">
+
+  <div class="camera-stage" id="cameraStage">
+    <video id="video" autoplay playsinline muted></video>
+
+    <!-- Silhouette guide -->
+    <div class="silhouette-overlay">
+      <svg class="silhouette-svg" viewBox="0 0 200 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Head -->
+        <ellipse cx="100" cy="50" rx="32" ry="36" fill="white"/>
+        <!-- Neck -->
+        <rect x="88" y="82" width="24" height="22" rx="4" fill="white"/>
+        <!-- Torso -->
+        <path d="M55 104 Q100 98 145 104 L158 230 Q100 236 42 230 Z" fill="white"/>
+        <!-- Left arm -->
+        <path d="M55 108 L22 190 Q18 202 26 208 L42 232" stroke="white" stroke-width="22" stroke-linecap="round" fill="none"/>
+        <!-- Right arm -->
+        <path d="M145 108 L178 190 Q182 202 174 208 L158 232" stroke="white" stroke-width="22" stroke-linecap="round" fill="none"/>
+        <!-- Left leg -->
+        <path d="M70 230 L62 380 Q60 400 72 404 L88 408" stroke="white" stroke-width="26" stroke-linecap="round" fill="none"/>
+        <!-- Right leg -->
+        <path d="M130 230 L138 380 Q140 400 128 404 L112 408" stroke="white" stroke-width="26" stroke-linecap="round" fill="none"/>
+        <!-- Left foot -->
+        <ellipse cx="76" cy="418" rx="22" ry="10" fill="white"/>
+        <!-- Right foot -->
+        <ellipse cx="124" cy="418" rx="22" ry="10" fill="white"/>
+      </svg>
+    </div>
+
+    <!-- Corner brackets -->
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+
+    <!-- Scan line -->
+    <div class="scanline"></div>
+
+    <!-- HUD strip -->
+    <div class="hud-strip">
+      <span class="hud-text" id="hudCamLabel">CAM: —</span>
+      <span class="hud-live">LIVE</span>
+    </div>
+
+    <!-- Countdown overlay -->
+    <div id="countdown-overlay">3</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="camera-controls">
+    <div class="cam-selector-row">
+      <span class="cam-selector-label">Source:</span>
+      <select id="camSelect"><option>Detecting cameras…</option></select>
+    </div>
+    <button id="btnCapture">⚡ Capture</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SCREEN 2 — PROCESSING
+════════════════════════════════════════════════ -->
+<div id="screen-processing" class="screen">
+
+  <div class="processing-ring">
+    <svg viewBox="0 0 140 140">
+      <circle class="track" cx="70" cy="70" r="62"/>
+      <circle cx="70" cy="70" r="62" stroke-dasharray="70 320" stroke-dashoffset="-10"/>
+    </svg>
+    <div class="processing-icon">
+      <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="10" width="44" height="32" rx="1" stroke="#C8102E" stroke-width="1.5"/>
+        <circle cx="26" cy="26" r="10" stroke="#C8102E" stroke-width="1.5"/>
+        <circle cx="26" cy="26" r="4" fill="#C8102E"/>
+        <rect x="22" y="6" width="8" height="6" stroke="#C8102E" stroke-width="1.5"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="processing-text-wrap">
+    <div class="processing-title">Generating<span> your</span> portrait</div>
+    <div class="processing-subtitle" id="processingStatus">Sending to AI engine…</div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar"></div>
+  </div>
+
+  <div class="processing-steps">
+    <div class="step-item active" id="step1"><span class="step-dot"></span>Capturing frame</div>
+    <div class="step-item"        id="step2"><span class="step-dot"></span>Sending to Imagen AI</div>
+    <div class="step-item"        id="step3"><span class="step-dot"></span>Blending background</div>
+    <div class="step-item"        id="step4"><span class="step-dot"></span>Finalising portrait</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SCREEN 3 — RESULT
+════════════════════════════════════════════════ -->
+<div id="screen-result" class="screen">
+
+  <!-- Photo frame with QR embedded inside -->
+  <div class="result-photo-wrap">
+    <div class="result-photo-frame">
+      <img id="resultImg" src="" alt="Generated portrait"/>
+
+      <!-- Corner brackets -->
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <!-- QR overlay at bottom of photo -->
+      <div class="qr-overlay">
+        <div class="qr-box">
+          <div id="qrcode"></div>
+        </div>
+        <div class="qr-text-col">
+          <div class="qr-brand-row">
+            <img src="/shared/mg-logo.svg" alt="MG"/>
+            <span>MG7 · AR</span>
+          </div>
+          <div class="qr-cta-text">Scan to Experience in AR</div>
+          <div class="qr-cta-sub">Point your phone camera at this QR code</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions column -->
+  <div class="result-actions-col">
+    <div class="result-actions-title">Actions</div>
+    <div class="action-buttons">
+      <button class="btn-action btn-primary"   id="btnSave">⬇ Save Photo</button>
+      <button class="btn-action btn-secondary" id="btnPrint">🖨 Print</button>
+      <button class="btn-action btn-secondary" id="btnRetake">↺ Retake</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden capture canvas -->
+<canvas id="captureCanvas"></canvas>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+// ── State ────────────────────────────────────────
+let currentStream   = null;
+let capturedBase64  = null;
+let generatedDataUrl = null;
+let qrGenerated     = false;
+
+// MediaPipe state
+let segmentationMaskCanvas = document.createElement('canvas');
+let segmentationMaskCtx = segmentationMaskCanvas.getContext('2d');
+let personCutoutBase64 = null;
+let segmentationPromiseResolve = null;
+
+const selfieSegmentation = new SelfieSegmentation({locateFile: (file) => {
+  return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+}});
+selfieSegmentation.setOptions({ modelSelection: 1 });
+selfieSegmentation.onResults((results) => {
+  if (!segmentationPromiseResolve) return;
+  const canvas = segmentationMaskCanvas;
+  const ctx = segmentationMaskCtx;
+  canvas.width = results.image.width;
+  canvas.height = results.image.height;
+  
+  // Draw the mask
+  ctx.save();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+  
+  // Draw the original image with source-in to extract just the person
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  
+  personCutoutBase64 = canvas.toDataURL('image/png');
+  segmentationPromiseResolve();
+  segmentationPromiseResolve = null;
+});
+
+// ── DOM refs ─────────────────────────────────────
+const video         = document.getElementById('video');
+const camSelect     = document.getElementById('camSelect');
+const btnCapture    = document.getElementById('btnCapture');
+const countdownEl   = document.getElementById('countdown-overlay');
+const hudCamLabel   = document.getElementById('hudCamLabel');
+const resultImg     = document.getElementById('resultImg');
+const qrcodeDiv     = document.getElementById('qrcode');
+const btnSave       = document.getElementById('btnSave');
+const btnPrint      = document.getElementById('btnPrint');
+const btnRetake     = document.getElementById('btnRetake');
+const toast         = document.getElementById('toast');
+
+// ── Screens ──────────────────────────────────────
+const screens = {
+  camera:     document.getElementById('screen-camera'),
+  processing: document.getElementById('screen-processing'),
+  result:     document.getElementById('screen-result'),
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+// ── Toast ────────────────────────────────────────
+let toastTimer;
+function showToast(msg, duration = 4000) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+// ── Camera init ───────────────────────────────────
+async function initCameras() {
+  try {
+    // Request permission first
+    const tmpStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmpStream.getTracks().forEach(t => t.stop());
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams    = devices.filter(d => d.kind === 'videoinput');
+
+    camSelect.innerHTML = '';
+    cams.forEach((cam, i) => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      opt.textContent = cam.label || `Camera ${i + 1}`;
+      camSelect.appendChild(opt);
+    });
+
+    // Restore saved preference
+    const saved = localStorage.getItem('mg_camId');
+    if (saved && cams.some(c => c.deviceId === saved)) {
+      camSelect.value = saved;
+    }
+
+    await startStream(camSelect.value);
+  } catch (err) {
+    showToast('Camera access denied. Please allow camera permissions and reload.');
+    console.error(err);
+  }
+}
+
+async function startStream(deviceId) {
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+
+  const constraints = deviceId
+    ? { video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 960 } } }
+    : { video: { width: { ideal: 1280 }, height: { ideal: 960 } } };
+
+  try {
+    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = currentStream;
+
+    // Update HUD label
+    const track = currentStream.getVideoTracks()[0];
+    hudCamLabel.textContent = 'CAM: ' + (track.label || 'Camera').toUpperCase().slice(0, 22);
+  } catch (err) {
+    showToast('Could not start camera: ' + err.message);
+  }
+}
+
+camSelect.addEventListener('change', () => {
+  localStorage.setItem('mg_camId', camSelect.value);
+  startStream(camSelect.value);
+});
+
+// ── Countdown ─────────────────────────────────────
+function runCountdown(from, onZero) {
+  countdownEl.textContent = from;
+  countdownEl.classList.add('visible');
+  let n = from;
+  const iv = setInterval(() => {
+    n--;
+    if (n <= 0) {
+      clearInterval(iv);
+      countdownEl.classList.remove('visible');
+      onZero();
+    } else {
+      countdownEl.textContent = n;
+    }
+  }, 1000);
+}
+
+// ── Capture ───────────────────────────────────────
+function captureFrame() {
+  const canvas  = document.getElementById('captureCanvas');
+  const vw      = video.videoWidth  || 640;
+  const vh      = video.videoHeight || 480;
+  canvas.width  = vw;
+  canvas.height = vh;
+  const ctx = canvas.getContext('2d');
+  // Mirror back (video is CSS-mirrored, draw un-mirrored for AI)
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, -vw, 0, vw, vh);
+  ctx.restore();
+  
+  // Store raw capture for fallback
+  capturedBase64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+  return canvas;
+}
+
+// ── Step animations ───────────────────────────────
+function setStep(stepId) {
+  ['step1','step2','step3','step4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = 'step-item';
+    if (id === stepId) el.classList.add('active');
+    else if (parseInt(id.slice(-1)) < parseInt(stepId.slice(-1))) el.classList.add('done');
+  });
+  const statusMap = {
+    step1: 'Capturing frame…',
+    step2: 'Sending to Gemini Imagen AI…',
+    step3: 'Blending premium background…',
+    step4: 'Finalising your portrait…',
+  };
+  document.getElementById('processingStatus').textContent = statusMap[stepId] || '';
+}
+
+// ── Image Generation via Server Proxy ─────────────
+async function generateImage() {
+  // ── TEST MODE: skip API and return the fixed test portrait ──
+  if (CONFIG.TEST_MODE) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        resolve(c.toDataURL('image/jpeg', 0.95));
+      };
+      img.onerror = () => resolve('/shared/test_portrait.jpg');
+      img.src = '/shared/test_portrait.jpg?t=' + Date.now();
+    });
+  }
+
+  setStep('step2');
+  document.getElementById('processingStatus').textContent = 'Sending to Imagen AI…';
+
+  const resp = await fetch('/api/generate-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      imageBase64: capturedBase64,
+      prompt:      CONFIG.IMAGE_PROMPT,
+    })
+  });
+
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.error || 'Server proxy failed');
+  console.log('✅ Portrait generated via model:', data.model);
+  return data.dataUrl;
+}
+
+// ── QR Code ───────────────────────────────────────
+function renderQR(url) {
+  qrcodeDiv.innerHTML = '';
+  new QRCode(qrcodeDiv, {
+    text:            url,
+    width:           90,
+    height:          90,
+    colorDark:       '#C8102E',
+    colorLight:      '#FFFFFF',
+    correctLevel:    QRCode.CorrectLevel.H,
+  });
+}
+
+// ── Compositing ───────────────────────────────────
+async function extractPerson() {
+  return new Promise((resolve) => {
+    segmentationPromiseResolve = resolve;
+    const canvas = document.getElementById('captureCanvas');
+    selfieSegmentation.send({ image: canvas });
+  });
+}
+
+async function compositeImages(bgUrl, fgUrl) {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const bg = new Image();
+    bg.crossOrigin = 'anonymous';
+    bg.onload = () => {
+      canvas.width = bg.width;
+      canvas.height = bg.height;
+      // Draw background first
+      ctx.drawImage(bg, 0, 0, bg.width, bg.height);
+
+      const fg = new Image();
+      fg.onload = () => {
+        // Scale person so full body fits inside frame height (85% of frame)
+        const targetH = bg.height * 0.85;
+        const scale   = targetH / fg.height;
+        const w = fg.width  * scale;
+        const h = fg.height * scale;
+
+        // Center horizontally, anchor to bottom of frame
+        const x = (bg.width - w) / 2;
+        const y = bg.height - h;
+
+        // Subtle ground shadow so the person looks "planted"
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        ctx.filter = 'blur(18px)';
+        const shadowW = w * 0.55;
+        const shadowH = h * 0.04;
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(
+          x + w / 2, y + h + shadowH / 2,
+          shadowW / 2, shadowH / 2,
+          0, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
+
+        // Draw the person on top
+        ctx.drawImage(fg, x, y, w, h);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      };
+      fg.onerror = reject;
+      fg.src = fgUrl;
+    };
+    bg.onerror = reject;
+    bg.src = bgUrl;
+  });
+}
+
+// ── Main capture + generate flow ──────────────────
+btnCapture.addEventListener('click', () => {
+  btnCapture.disabled = true;
+  runCountdown(3, async () => {
+    captureFrame();
+    showScreen('processing');
+    setStep('step1');
+
+    await delay(600); setStep('step2');
+
+    try {
+      await delay(400); setStep('step3');
+      generatedDataUrl = await generateImage();
+      await delay(400); setStep('step4');
+      await delay(600);
+
+      resultImg.src = generatedDataUrl;
+      if (!qrGenerated) { renderQR(CONFIG.AR_URL); qrGenerated = true; }
+      showScreen('result');
+    } catch (err) {
+      console.error('Image generation error:', err);
+      showToast('Generation failed: ' + err.message + '. Using your photo instead.');
+      resultImg.src = 'data:image/jpeg;base64,' + capturedBase64;
+      if (!qrGenerated) { renderQR(CONFIG.AR_URL); qrGenerated = true; }
+      showScreen('result');
+    }
+
+    btnCapture.disabled = false;
+  });
+});
+
+// ── Save / Print / Retake ─────────────────────────
+btnSave.addEventListener('click', async () => {
+  if (!generatedDataUrl && !capturedBase64) return;
+  const frame = document.querySelector('.result-photo-frame');
+  const canvas = await html2canvas(frame, { scale: 2, useCORS: true, backgroundColor: '#050505' });
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `MG7_Portrait_${Date.now()}.png`;
+  a.click();
+});
+
+btnPrint.addEventListener('click', async () => {
+  if (!generatedDataUrl && !capturedBase64) { showToast('No image to print yet.'); return; }
+  document.getElementById('processingStatus').textContent = 'Preparing print…';
+  
+  const frame = document.querySelector('.result-photo-frame');
+  const canvas = await html2canvas(frame, { scale: 2, useCORS: true, backgroundColor: '#050505' });
+  
+  canvas.toBlob((blob) => {
+    const objUrl = URL.createObjectURL(blob);
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>Print MG7</title><style>
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { background:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+      img  { max-width:100%; max-height:100vh; display:block; object-fit: contain; }
+    </style></head><body><img src="${objUrl}" onload="window.print(); window.addEventListener('afterprint', () => window.close());"/></body></html>`);
+    w.document.close();
+    document.getElementById('processingStatus').textContent = '';
+  }, 'image/png');
+});
+
+btnRetake.addEventListener('click', () => {
+  showScreen('camera');
+  setStep('step1');
+});
+
+// ── Utilities ─────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Boot ──────────────────────────────────────────
+initCameras();
+</script>
+</body>
+</html>

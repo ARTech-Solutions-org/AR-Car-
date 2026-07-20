@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#000000"/>
+  <title>MG7 AR Experience</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- A-Frame 1.4.2 (Restores Draco Decoder compatibility for fast loading) & Zappar -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://libs.zappar.com/zappar-aframe/2.0.0/zappar-aframe.js"></script>
+  
+  <script src="/config.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --red:       #C8102E;
+      --red-glow:  rgba(200,16,46,0.6);
+      --chrome:    #B0B0B0;
+      --offwhite:  #F0EDE8;
+      --black:     #0A0A0A;
+      --glass:     rgba(8,8,8,0.82);
+      --border:    rgba(200,16,46,0.35);
+      --font-head: 'Barlow Condensed', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+    html, body {
+      width: 100%; height: 100%; background: #000; color: var(--offwhite);
+      font-family: var(--font-body); overflow: hidden;
+      touch-action: none; user-select: none;
+    }
+
+    #ui-layer {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      z-index: 9999; pointer-events: none;
+    }
+
+    #fake-reticle {
+      position: absolute; top: 55%; left: 50%;
+      width: 140px; height: 140px;
+      border: 3px dashed rgba(200,16,46,0.8); border-radius: 50%;
+      pointer-events: auto; opacity: 1; cursor: pointer;
+      box-shadow: 0 0 30px rgba(200,16,46,0.3) inset, 0 0 30px rgba(200,16,46,0.3);
+      animation: reticle-pulse 3s infinite linear;
+      transition: opacity 0.4s;
+    }
+    #fake-reticle.hidden { opacity: 0; pointer-events: none; }
+    #fake-reticle::after {
+      content: 'Tap to Place'; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotateX(-70deg) rotateZ(0deg) !important;
+      font-family: var(--font-head); font-size: 16px; font-weight: 800; color: #fff;
+      letter-spacing: 0.15em; text-transform: uppercase; text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+      white-space: nowrap;
+    }
+    @keyframes reticle-pulse {
+      0% { transform: translate(-50%, -50%) rotateX(70deg) rotateZ(0deg) scale(0.9); }
+      50% { transform: translate(-50%, -50%) rotateX(70deg) rotateZ(180deg) scale(1.1); }
+      100% { transform: translate(-50%, -50%) rotateX(70deg) rotateZ(360deg) scale(0.9); }
+    }
+
+    #recenter-btn {
+      position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+      padding: 12px 24px; background: var(--glass); border: 1px solid var(--border);
+      color: var(--offwhite); font-family: var(--font-head); font-size: 16px;
+      letter-spacing: 0.1em; text-transform: uppercase; border-radius: 30px;
+      opacity: 0; pointer-events: none; transition: opacity 0.4s;
+      cursor: pointer;
+    }
+    #recenter-btn.visible { opacity: 1; pointer-events: auto; }
+    #recenter-btn:active { background: var(--red); }
+
+    #start-overlay { position: fixed; inset: 0; background: var(--black); display: flex; align-items: center; justify-content: center; transition: opacity 0.5s ease; pointer-events: auto; }
+    #start-overlay.hidden { opacity: 0; pointer-events: none; }
+    .so-content { text-align: center; }
+    .so-logo { height: 40px; filter: brightness(10); margin-bottom: 16px; }
+    .so-title { font-family: var(--font-head); font-size: 32px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+    .so-title span { color: var(--red); }
+    .so-sub { font-size: 13px; color: var(--chrome); line-height: 1.6; margin-bottom: 24px; }
+    #so-btn { height: 54px; padding: 0 40px; background: var(--red); border: none; color: #fff; font-family: var(--font-head); font-size: 18px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; border-radius: 4px; }
+
+    #header { position: absolute; top: 0; left: 0; right: 0; height: 52px; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+    .hdr-brand { display: flex; align-items: center; gap: 10px; }
+    .hdr-brand img { height: 28px; filter: brightness(10); }
+    .hdr-brand span { font-family: var(--font-head); font-size: 18px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .hdr-badge { font-family: var(--font-head); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--red); border: 1px solid var(--red); padding: 3px 10px; }
+
+    #panels-wrap { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.8s ease; }
+    #panels-wrap.visible { opacity: 1; }
+    .info-panel { position: absolute; width: 120px; background: var(--glass); border: 1px solid var(--border); padding: 13px 11px 11px; pointer-events: auto; cursor: pointer; backdrop-filter: blur(10px); opacity: 0; transform: translateY(50px) scale(0.8); transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.22,1,0.36,1), border-color 0.25s, box-shadow 0.25s; }
+    .info-panel.in { opacity: 1; transform: translate(0,0); }
+    .info-panel:hover, .info-panel.active { border-color: var(--red); box-shadow: 0 0 20px var(--red-glow), inset 0 0 8px rgba(200,16,46,0.08); }
+    .panel-icon  { font-size: 20px; text-align: center; margin-bottom: 5px; filter: drop-shadow(0 0 6px var(--red-glow)); }
+    .panel-title { font-family: var(--font-head); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--chrome); text-align: center; margin-bottom: 3px; }
+    .panel-value { font-family: var(--font-head); font-size: 18px; font-weight: 800; text-align: center; color: var(--offwhite); line-height: 1.05; margin-bottom: 3px; }
+    .panel-divider { height: 1px; background: var(--border); margin: 5px 0; }
+    .panel-detail  { font-size: 10px; color: var(--chrome); text-align: center; line-height: 1.3; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.3s; opacity: 0; }
+    .info-panel.active .panel-detail { max-height: 50px; opacity: 1; }
+
+    #hud-bar { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border-top: 1px solid var(--border); padding: 10px 20px 14px; display: flex; align-items: center; justify-content: space-between; }
+    .hud-left { font-family: var(--font-head); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chrome); }
+    .hud-left strong { color: var(--offwhite); font-size: 15px; }
+    .hud-tip { font-family: var(--font-head); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(176,176,176,0.6); }
+
+    #loading-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 900; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.5s; pointer-events: auto; }
+    #loading-screen.hidden { opacity: 0; pointer-events: none; }
+    .loader-spinner { width: 50px; height: 50px; border: 3px solid rgba(200,16,46,0.3); border-top-color: var(--red); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-text { font-family: var(--font-head); font-size: 18px; letter-spacing: 0.15em; color: var(--offwhite); text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+<script>
+// A-Frame custom component to track 3D points and pin HTML panels to them
+AFRAME.registerComponent('panel-manager', {
+  init: function () {
+    this.vec3 = new THREE.Vector3();
+    this.panels = document.querySelectorAll('.info-panel');
+    this.anchors = document.querySelectorAll('.panel-anchor');
+  },
+  tick: function () {
+    // Safely get the active camera from the scene
+    const camera = this.el.sceneEl.camera;
+    if (!window.isPlaced || !camera) return;
+
+    if (!this.panels || this.panels.length === 0) {
+      this.panels = document.querySelectorAll('.info-panel');
+      this.anchors = document.querySelectorAll('.panel-anchor');
+    }
+
+    this.anchors.forEach((anchor, i) => {
+      const panel = this.panels[i];
+      if (!panel) return;
+
+      anchor.object3D.getWorldPosition(this.vec3);
+      this.vec3.project(camera);
+
+      // Map to screen pixels
+      const x = (this.vec3.x * .5 + .5) * window.innerWidth;
+      const y = (-(this.vec3.y * .5) + .5) * window.innerHeight;
+
+      if (this.vec3.z > 1) {
+        panel.style.display = 'none'; // Behind camera
+      } else {
+        panel.style.display = 'block';
+        panel.style.left = (x - 60) + 'px'; 
+        panel.style.top = (y - 45) + 'px';
+      }
+    });
+  }
+});
+</script>
+
+<!-- A-Frame Scene (vr-mode-ui disabled, Draco decoder configured) -->
+<a-scene gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/;" vr-mode-ui="enabled: false" renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true" zappar-permissions-ui="enabled: false" zappar-compatibility-ui="enabled: false" panel-manager>
+    
+    <!-- Lighting for PBR materials -->
+    <a-light type="ambient" color="#ffffff" intensity="1.2"></a-light>
+    <a-light type="directional" color="#ffffff" intensity="1.5" position="-1 2 1" castShadow="false"></a-light>
+    <a-light type="directional" color="#dbe5ff" intensity="0.5" position="1 1 -1"></a-light>
+
+    <a-camera zappar-camera></a-camera>
+
+    <!-- Zappar Instant Tracker -->
+    <a-entity zappar-instant="placement-mode: true" id="instant-tracker">
+        
+        <!-- Wrapper kept hidden safely while parsing in background -->
+        <a-entity id="car-wrapper" visible="false" rotation="0 180 0">
+            <!-- Car Model (Centimeters to Meters scale) loaded instantly -->
+            <a-entity gltf-model="url(/mg7_uncompressed.glb)" id="car-model" scale="0.01 0.01 0.01"></a-entity>
+            
+            <!-- Anchors in a massive circle (7m diameter) around the car to prevent overlapping -->
+            <a-entity class="panel-anchor" data-idx="0" position="0 0.8 3.5"></a-entity>     
+            <a-entity class="panel-anchor" data-idx="1" position="0 0.8 -3.5"></a-entity>    
+            <a-entity class="panel-anchor" data-idx="2" position="-2.5 0.8 1.5"></a-entity>    
+            <a-entity class="panel-anchor" data-idx="3" position="2.5 0.8 1.5"></a-entity>     
+            <a-entity class="panel-anchor" data-idx="4" position="-2.5 0.8 -1.5"></a-entity>   
+            <a-entity class="panel-anchor" data-idx="5" position="2.5 0.8 -1.5"></a-entity>    
+        </a-entity>
+
+    </a-entity>
+
+</a-scene>
+
+<div id="ui-layer">
+  <div id="start-overlay">
+    <div class="so-content">
+      <img src="/shared/mg-logo.svg" alt="MG" class="so-logo"/>
+      <div class="so-title">MG7 <span>AR</span></div>
+      <div class="so-sub">Experience True WebAR without apps.<br>Powered by Computer Vision.</div>
+      <button id="so-btn">Start Experience</button>
+    </div>
+  </div>
+
+  <div id="loading-screen" class="hidden">
+    <div class="loader-spinner"></div>
+    <div class="loader-text">Loading 3D Model...</div>
+  </div>
+
+  <div id="header">
+    <div class="hdr-brand"><img src="/shared/mg-logo.svg" alt="MG"/><span>MG7 · AR</span></div>
+    <div class="hdr-badge">True SLAM</div>
+  </div>
+
+  <div id="fake-reticle" class="hidden"></div>
+  <div id="panels-wrap"></div>
+  <button id="recenter-btn">Reposition</button>
+
+  <div id="hud-bar">
+    <div class="hud-left"><strong>MG7</strong><br>AR Experience</div>
+    <div class="hud-tip">Tap panels for details</div>
+  </div>
+</div>
+
+<script>
+const SPECS = [
+  { icon: '⚡', title: 'Engine',    value: '1.5T',      detail: '169 HP · 275 Nm' },
+  { icon: '🏎',  title: '0–100',    value: '8.2s',      detail: 'Sport Mode Active' },
+  { icon: '📡', title: 'Tech',     value: 'ADAS L2',   detail: 'Lane Keep + ACC' },
+  { icon: '🔋', title: 'Fuel',     value: '6.8L',      detail: 'Per 100 km' },
+  { icon: '📐', title: 'Length',   value: '4675mm',    detail: '1842mm Wide' },
+  { icon: '⭐', title: 'Safety',   value: '5-Star',    detail: 'Euro NCAP 2024' },
+];
+
+const startBtn = document.getElementById('so-btn');
+const startOverlay = document.getElementById('start-overlay');
+const loadingScreen = document.getElementById('loading-screen');
+const fakeReticle = document.getElementById('fake-reticle');
+const recenterBtn = document.getElementById('recenter-btn');
+const panelsWrap = document.getElementById('panels-wrap');
+const carModel = document.getElementById('car-model');
+const carWrapper = document.getElementById('car-wrapper');
+const instantTracker = document.getElementById('instant-tracker');
+
+window.isPlaced = false;
+window.isModelLoaded = false;
+
+const panelEls = [];
+SPECS.forEach((spec, i) => {
+  const panel = document.createElement('div');
+  panel.className = 'info-panel';
+  panel.innerHTML = `<div class="panel-icon">${spec.icon}</div><div class="panel-title">${spec.title}</div><div class="panel-value">${spec.value}</div><div class="panel-divider"></div><div class="panel-detail">${spec.detail}</div>`;
+  panel.addEventListener('click', () => {
+    document.querySelectorAll('.info-panel.active').forEach(p => p !== panel && p.classList.remove('active'));
+    panel.classList.toggle('active');
+  });
+  panelsWrap.appendChild(panel);
+  panelEls.push(panel);
+});
+
+startBtn.addEventListener('click', () => {
+  startOverlay.classList.add('hidden');
+  if (window.isModelLoaded) {
+    fakeReticle.classList.remove('hidden');
+  } else {
+    loadingScreen.classList.remove('hidden');
+  }
+});
+
+// A-Frame emits model-loaded when parsing completes
+carModel.addEventListener('model-loaded', () => {
+  window.isModelLoaded = true;
+  if (startOverlay.classList.contains('hidden')) {
+    loadingScreen.classList.add('hidden');
+    fakeReticle.classList.remove('hidden');
+  }
+});
+
+// If there's a strict error, log it and let the user know
+carModel.addEventListener('model-error', (e) => {
+  console.error('GLTF Load Error:', e);
+  document.querySelector('.loader-text').innerText = 'Error Loading Model';
+});
+
+fakeReticle.addEventListener('click', () => {
+  if (window.isPlaced) return;
+  window.isPlaced = true;
+  
+  // Anchor to floor
+  instantTracker.setAttribute('zappar-instant', 'placement-mode: false');
+  
+  // Show the car
+  fakeReticle.classList.add('hidden');
+  carWrapper.setAttribute('visible', true);
+  recenterBtn.classList.add('visible');
+  
+  panelsWrap.classList.add('visible');
+  panelEls.forEach((panel, i) => {
+    setTimeout(() => panel.classList.add('in'), 120 + i * 140);
+  });
+});
+
+recenterBtn.addEventListener('click', () => {
+  window.isPlaced = false;
+  instantTracker.setAttribute('zappar-instant', 'placement-mode: true');
+  carWrapper.setAttribute('visible', false);
+  recenterBtn.classList.remove('visible');
+  panelsWrap.classList.remove('visible');
+  panelEls.forEach(p => p.classList.remove('in'));
+  fakeReticle.classList.remove('hidden');
+});
+</script>
+</body>
+</html>

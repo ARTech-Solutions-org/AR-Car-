@@ -1,0 +1,9 @@
+@echo off
+title MG7 Photobooth Server
+echo Starting HTTPS Proxy on port 8443...
+start /B npx --yes local-ssl-proxy --source 8443 --target 8080
+echo Starting MG7 Server...
+echo Opening browser...
+start http://localhost:8080/photobooth/
+node server.js
+pause
