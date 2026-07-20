@@ -5,10 +5,10 @@
 
 const CONFIG = {
   // ── Gemini Imagen API ───────────────────────────────────────
-  // Note: Loaded from environment variables (.env) when available
+  // Loaded server-side from environment variables (.env) for security
   GEMINI_API_KEY: (typeof process !== "undefined" && process.env && process.env.GEMINI_API_KEY)
     ? process.env.GEMINI_API_KEY
-    : "AIzaSyBQzMKQ0BX0DlP_hqPzrBxzywo8kYJOBaE",
+    : "",
 
   // ── TEST MODE ────────────────────────────────────────────────
   // Set to true to skip the AI call and always show the test portrait.
