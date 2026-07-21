@@ -370,13 +370,13 @@
       bgScreenMesh = new THREE.Mesh(bgGeo, bgMat);
 
       if (depthDim.axis === 'z') {
-        bgScreenMesh.position.set(ctr.x, ctr.y, ctr.z + depthDim.size * 0.51);
+        bgScreenMesh.position.set(0, 0, depthDim.size * 0.51);
       } else if (depthDim.axis === 'y') {
         bgScreenMesh.rotation.x = -Math.PI / 2;
-        bgScreenMesh.position.set(ctr.x, ctr.y + depthDim.size * 0.51, ctr.z);
+        bgScreenMesh.position.set(0, depthDim.size * 0.51, 0);
       } else {
         bgScreenMesh.rotation.y = Math.PI / 2;
-        bgScreenMesh.position.set(ctr.x + depthDim.size * 0.51, ctr.y, ctr.z);
+        bgScreenMesh.position.set(depthDim.size * 0.51, 0, 0);
       }
       carRoot.add(bgScreenMesh);
 
@@ -522,10 +522,17 @@
 
     const modelPath = (typeof CONFIG !== 'undefined' && CONFIG.MODEL_PATH) ? CONFIG.MODEL_PATH : '/mg7.glb';
     loader.load(modelPath, (gltf) => {
-      carRoot = gltf.scene;
-      const box = new THREE.Box3().setFromObject(carRoot);
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
       const sz = new THREE.Vector3(), ctr = new THREE.Vector3();
       box.getSize(sz); box.getCenter(ctr);
+
+      // Shift the model's inner mesh coordinates so that its visual center lies at (0, 0, 0)
+      model.position.set(-ctr.x, -ctr.y, -ctr.z);
+
+      // Create a new wrapper group that serves as carRoot, centering the pivot of the 3D model
+      carRoot = new THREE.Group();
+      carRoot.add(model);
 
       carScale = 1.0 / Math.max(sz.x, sz.y, sz.z);
       currentScale = carScale;
