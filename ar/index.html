@@ -589,8 +589,8 @@
         if (dist > 8) {
           lastDragX = e.touches[0].clientX;
           lastDragY = e.touches[0].clientY;
-          carYaw -= dx * 0.008; // Negate rotation direction (swipe left rotates left)
-          carPitch = Math.max(-1.2, Math.min(1.2, carPitch - dy * 0.008)); // Pitch rotation with clamping (-68 to +68 deg)
+          carYaw += dx * 0.008; // Inverted rotation direction
+          carPitch = Math.max(-1.2, Math.min(1.2, carPitch + dy * 0.008)); // Inverted pitch rotation direction
           carRoot.rotation.y = carYaw;
           carRoot.rotation.x = carPitch;
         }
